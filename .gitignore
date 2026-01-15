@@ -1,0 +1,22 @@
+# VS Code
+.vscode/
+*.code-workspace
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+*.swp
+*.swo
+*~
+
+# Node modules (if using npm/build tools)
+node_modules/
+package-lock.json
+
+# Build output
+dist/
+build/
+
+# OS files
+Thumbs.db

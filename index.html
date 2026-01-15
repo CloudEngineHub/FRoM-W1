@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Primary Meta Tags -->
+  <meta name="title"
+    content="FRoM-W1: An Open Framework for General Language to Humanoid Whole-Body Control - Peng Li, Zihan Zhuang, Yangfan Gao, Doney">
+  <meta name="description"
+    content="In this work, we present FRoM-W1, an open-source framework that enables general whole-body motion control of humanoid robots using natural lan-
+    guage. To bridge natural language understanding, motion generation, and whole-body control, FRoM-W1 adopts a two-stage design. First, H-GPT, a LLaMA-based
+    text-to-human whole-body motion generator, is trained on large-scale text–motion
+    pairs distilled from video. A Chain-of-Thought (CoT)–augmented variant further
+    improves its ability to interpret abstract, compositional instructions. Then, retargeting is applied to convert the generated human motions into robot-specific,
+    hand-inclusive reference trajectories. Second, H-ACT learns whole-body control
+    policies in physics simulation to track these trajectories under full-body dynamics, ensuring physically stable execution. On top of this, a lightweight sim-to-real
+    deployment stack enables plug-and-play whole-body motion execution across different humanoid platforms. Experiments show that our generation model produces
+    diverse and physically feasible humanoid behaviors, achieving state-of-the-art performance with over 50% improvement on several benchmarks. The full framework Hans
+    waiting for evalfurther achieves consistent and stable task execution on Unitree H1 and Unitree G1
+    in the real world, validating both deployability and cross-embodiment capability.
+    We release the entire ecosystem, including models, evaluation suites, and deployment code, and hope it will advance the development of humanoid intelligence.">
+  <meta name="keywords" content="Humanoid, Whole-Body Control, LLM">
+  <meta name="author" content="Peng Li, Zihan Zhuang, Yangfan Gao, Doney">
+  <meta name="robots" content="index, follow">
+  <meta name="language" content="English">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="article">
+  <!-- TODO: Replace with your institution or lab name -->
+  <meta property="og:site_name" content="Fudan NLP Lab">
+  <!-- TODO: Same as paper title above -->
+  <meta property="og:title" content="FRoM-W1: An Open Framework for General Language to Humanoid Whole-Body Control">
+  <!-- TODO: Same as description above -->
+  <meta property="og:description"
+    content="In this work, we present FRoM-W1, an open-source framework that enables general whole-body motion control of humanoid robots using natural lan-
+    guage. To bridge natural language understanding, motion generation, and whole-body control, FRoM-W1 adopts a two-stage design. First, H-GPT, a LLaMA-based
+    text-to-human whole-body motion generator, is trained on large-scale text–motion
+    pairs distilled from video. A Chain-of-Thought (CoT)–augmented variant further
+    improves its ability to interpret abstract, compositional instructions. Then, retargeting is applied to convert the generated human motions into robot-specific,
+    hand-inclusive reference trajectories. Second, H-ACT learns whole-body control
+    policies in physics simulation to track these trajectories under full-body dynamics, ensuring physically stable execution. On top of this, a lightweight sim-to-real
+    deployment stack enables plug-and-play whole-body motion execution across different humanoid platforms. Experiments show that our generation model produces">
+  <meta property="og:url" content="https://hansz8.github.io/fr0m-w1/">
+  <meta property="og:image" content="https://YOUR_DOMAIN.com/static/images/social_preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="PAPER_TITLE - Research Preview">
+  <meta property="article:published_time" content="2024-01-01T00:00:00.000Z">
+  <meta property="article:author" content="FIRST_AUTHOR_NAME">
+  <meta property="article:section" content="Research">
+  <meta property="article:tag" content="KEYWORD1">
+  <meta property="article:tag" content="KEYWORD2">
+
+  <!-- Preconnect for performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://ajax.googleapis.com">
+  <link rel="preconnect" href="https://documentcloud.adobe.com">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+
+  <!-- TODO: Replace with your paper title and authors -->
+  <title>FRoM-W1: Towards General Humanoid Whole-Body Control with Language Instructions</title>
+
+  <!-- Favicon and App Icons -->
+  <link rel="icon" type="image/x-icon" href="static/images/FRoM.ico">
+  <link rel="apple-touch-icon" href="static/images/FRoM.ico">
+
+  <!-- Critical CSS - Load synchronously -->
+  <link rel="stylesheet" href="static/css/bulma.min.css">
+  <link rel="stylesheet" href="static/css/index.css">
+
+  <!-- Non-critical CSS - Load asynchronously -->
+  <link rel="preload" href="static/css/bulma-carousel.min.css" as="style"
+    onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="static/css/bulma-slider.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="static/css/fontawesome.all.min.css" as="style"
+    onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css" as="style"
+    onload="this.onload=null;this.rel='stylesheet'">
+
+  <!-- Fallback for browsers that don't support preload -->
+  <noscript>
+    <link rel="stylesheet" href="static/css/bulma-carousel.min.css">
+    <link rel="stylesheet" href="static/css/bulma-slider.min.css">
+    <link rel="stylesheet" href="static/css/fontawesome.all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  </noscript>
+
+  <!-- Fonts - Optimized loading -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Defer non-critical JavaScript -->
+  <script defer src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="https://documentcloud.adobe.com/view-sdk/main.js"></script>
+  <script defer src="static/js/fontawesome.all.min.js"></script>
+  <script defer src="static/js/bulma-carousel.min.js"></script>
+  <script defer src="static/js/bulma-slider.min.js"></script>
+  <script defer src="static/js/index.js"></script>
+
+  <!-- Structured Data for Academic Papers -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "ScholarlyArticle",
+    "headline": "PAPER_TITLE",
+    "description": "BRIEF_DESCRIPTION_OF_YOUR_RESEARCH_CONTRIBUTION_AND_FINDINGS",
+    "author": [
+      {
+        "@type": "Person",
+        "name": "FIRST_AUTHOR_NAME",
+        "affiliation": {
+          "@type": "Organization",
+          "name": "INSTITUTION_NAME"
+        }
+      },
+      {
+        "@type": "Person",
+        "name": "SECOND_AUTHOR_NAME",
+        "affiliation": {
+          "@type": "Organization",
+          "name": "INSTITUTION_NAME"
+        }
+      }
+    ],
+    "datePublished": "2024-01-01",
+    "publisher": {
+      "@type": "Organization",
+      "name": "CONFERENCE_OR_JOURNAL_NAME"
+    },
+    "url": "https://YOUR_DOMAIN.com/YOUR_PROJECT_PAGE",
+    "image": "https://YOUR_DOMAIN.com/static/images/social_preview.png",
+    "keywords": ["KEYWORD1", "KEYWORD2", "KEYWORD3", "machine learning", "computer vision"],
+    "abstract": "FULL_ABSTRACT_TEXT_HERE",
+    "citation": "BIBTEX_CITATION_HERE",
+    "isAccessibleForFree": true,
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "mainEntity": {
+      "@type": "WebPage",
+      "@id": "https://YOUR_DOMAIN.com/YOUR_PROJECT_PAGE"
+    },
+    "about": [
+      {
+        "@type": "Thing",
+        "name": "RESEARCH_AREA_1"
+      },
+      {
+        "@type": "Thing", 
+        "name": "RESEARCH_AREA_2"
+      }
+    ]
+  }
+  </script>
+
+  <!-- Website/Organization Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "INSTITUTION_OR_LAB_NAME",
+    "url": "https://YOUR_INSTITUTION_WEBSITE.com",
+    "logo": "https://YOUR_DOMAIN.com/static/images/FRoM.ico",
+    "sameAs": [
+      "https://twitter.com/YOUR_TWITTER_HANDLE",
+      "https://github.com/YOUR_GITHUB_USERNAME"
+    ]
+  }
+  </script>
+</head>
+
+<body>
+
+
+  <!-- Scroll to Top Button -->
+  <button class="scroll-to-top" onclick="scrollToTop()" title="Scroll to top" aria-label="Scroll to top">
+    <i class="fas fa-chevron-up"></i>
+  </button>
+
+  <!-- More Works Dropdown -->
+  <div class="more-works-container">
+    <button class="more-works-btn" onclick="toggleMoreWorks()" title="View More Works from Our Lab">
+      <i class="fas fa-flask"></i>
+      More Works
+      <i class="fas fa-chevron-down dropdown-arrow"></i>
+    </button>
+    <div class="more-works-dropdown" id="moreWorksDropdown">
+      <div class="dropdown-header">
+        <h4>More Works from Our Lab</h4>
+        <button class="close-btn" onclick="toggleMoreWorks()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="works-list">
+        <!-- TODO: Replace with your lab's related works -->
+        <a href="https://github.com/HansZ8/RoboJuDo" class="work-item" target="_blank">
+          <div class="work-info">
+            <!-- TODO: Replace with actual paper title -->
+            <h5>RoboJuDo</h5>
+            <!-- TODO: Replace with brief description -->
+            <p>The deployment framework of H-ACT.</p>
+            <!-- TODO: Replace with venue and year -->
+            <span class="work-venue">GitHub</span>
+          </div>
+          <i class="fas fa-external-link-alt"></i>
+        </a>
+        <!-- TODO: Add more related works or remove extra items -->
+        <!-- <a href="https://arxiv.org/abs/PAPER_ID_2" class="work-item" target="_blank">
+          <div class="work-info">
+            <h5>Paper Title 2</h5>
+            <p>Brief description of the work and its main contribution.</p>
+            <span class="work-venue">Conference/Journal 2023</span>
+          </div>
+          <i class="fas fa-external-link-alt"></i>
+        </a>
+        <a href="https://arxiv.org/abs/PAPER_ID_3" class="work-item" target="_blank">
+          <div class="work-info">
+            <h5>Paper Title 3</h5>
+            <p>Brief description of the work and its main contribution.</p>
+            <span class="work-venue">Conference/Journal 2023</span>
+          </div>
+          <i class="fas fa-external-link-alt"></i>
+        </a> -->
+      </div>
+    </div>
+  </div>
+
+  <main id="main-content">
+    <section class="hero">
+
+      <div style="position: relative; width: 100%; height: 100vh; overflow: hidden;">
+        <img src="assets/teaser.png" alt="Overall Image"
+          style="width: 100%; height: 100%; object-fit: cover; filter: brightness(70%);">
+
+        <div style="
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: white;
+        font-family: 'Arial', sans-serif;
+      ">
+          <h1
+            style="font-size: 8rem; margin: 0; color: rgb(247, 247, 247); text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); font-style: bold;">
+            FRoM-W1</h1>
+          <!-- <h2 style="font-size: 3rem; margin: 0.5rem 0 1.5rem 0;">Towards General Humanoid Whole-Body Control with Language Instructions</h2> -->
+          <div style="font-size: 2.1rem; opacity: 0.9;">
+            The Humanoid Intelligence Team from FudanNLP and OpenMOSS
+          </div>
+        </div>
+      </div>
+
+
+      <div class="hero-body">
+        <div class="container is-max-desktop">
+          <div class="columns is-centered">
+            <div class="column has-text-centered">
+
+              <!-- TODO: Replace with your paper title -->
+              <h1 class="title is-1 publication-title">FRoM-W1: Towards General Humanoid Whole-Body Control with
+                Language Instructions</h1>
+              <div class="is-size-5 publication-authors">
+                <!-- Full author list with superscripts; mailto links only where emails are known -->
+                <span class="author-block"><a href="mailto:pengli@sii.edu.cn"
+                    style="text-decoration:none;color:inherit;">Peng Li</a><sup>1,2*†</sup>,</span>
+                <span class="author-block"><a href="mailto:zhzhuang24@m.fudan.edu.cn"
+                    style="text-decoration:none;color:inherit;">Zihan Zhuang</a><sup>1*†</sup>,</span>
+                <span class="author-block"><a href="mailto:gaoyf24@m.fudan.edu.cn"
+                    style="text-decoration:none;color:inherit;">Yangfan Gao</a><sup>1*</sup>,</span>
+                <span class="author-block"><a href="mailto:yidong25@m.fudan.edu.cn"
+                    style="text-decoration:none;color:inherit;">Yi Dong</a><sup>1*</sup>,</span>
+                <span class="author-block"><a href="mailto:sxli25@m.fudan.edu.cn"
+                    style="text-decoration:none;color:inherit;">Sixian Li</a><sup>1,2</sup>,</span>
+                <span class="author-block"><a href="mailto:chjiang25@m.fudan.edu.cn"
+                    style="text-decoration:none;color:inherit;">Changhao Jiang</a><sup>1</sup>,</span>
+                <span class="author-block">Shihan Dou<sup>1</sup>,</span>
+                <span class="author-block">Zhiheng Xi<sup>1</sup>,</span>
+                <span class="author-block">Enyu Zhou<sup>1</sup>,</span>
+                <span class="author-block">Jixuan Huang<sup>1</sup>,</span>
+                <span class="author-block">Hui Li<sup>1</sup>,</span>
+                <span class="author-block">JingJing Gong<sup>2</sup>,</span>
+                <span class="author-block">Xingjun Ma<sup>1,2</sup>,</span>
+                <span class="author-block"><a href="mailto:tgui@fudan.edu.cn"
+                    style="text-decoration:none;color:inherit;">Tao Gui</a><sup>1✉</sup>,</span>
+                <span class="author-block">Zuxuan Wu<sup>1,2</sup>,</span>
+                <span class="author-block">Qi Zhang<sup>1</sup>,</span>
+                <span class="author-block">Xuanjing Huang<sup>1</sup>,</span>
+                <span class="author-block">Yu-Gang Jiang<sup>1</sup>,</span>
+                <span class="author-block"><a href="mailto:xpqiu@fudan.edu.cn"
+                    style="text-decoration:none;color:inherit;">Xipeng Qiu</a><sup>1,2✉</sup></span>
+              </div>
+
+              <div class="is-size-5 publication-authors">
+                <span class="author-block">1 Fudan University<br>2 Shanghai Innovation Institute</span>
+                <span class="eql-cntrb"><small><br><sup>*</sup>Equal contribution &nbsp; <sup>†</sup>Project Lead &nbsp;
+                    <sup>✉</sup>Corresponding authors</small></span>
+              </div>
+
+              <div class="column has-text-centered">
+                <div class="publication-links">
+                  <!-- TODO: Update with your arXiv paper ID -->
+                  <span class="link-block">
+                    <a href="https://arxiv.org/pdf/<ARXIV PAPER ID>.pdf" target="_blank"
+                      class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon">
+                        <i class="fas fa-file-pdf"></i>
+                      </span>
+                      <span>Paper</span>
+                    </a>
+                  </span>
+
+                  <!-- TODO: Add your supplementary material PDF or remove this section -->
+                  <span class="link-block">
+                    <a href="static/pdfs/supplementary_material.pdf" target="_blank"
+                      class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon">
+                        <i class="fas fa-file-pdf"></i>
+                      </span>
+                      <span>Supplementary</span>
+                    </a>
+                  </span>
+
+                  <!-- TODO: Replace with your GitHub repository URL -->
+                  <span class="link-block">
+                    <a href="https://github.com/OpenMOSS/FRoM-W1" target="_blank"
+                      class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon">
+                        <i class="fab fa-github"></i>
+                      </span>
+                      <span>Code</span>
+                    </a>
+                  </span>
+
+                  <!-- TODO: Update with your arXiv paper ID -->
+                  <span class="link-block">
+                    <a href="https://arxiv.org/abs/<ARXIV PAPER ID>" target="_blank"
+                      class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon">
+                        <i class="ai ai-arxiv"></i>
+                      </span>
+                      <span>arXiv</span>
+                    </a>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- Teaser video-->
+    <section class="hero teaser" style="padding: 40px 0;">
+      <div class="container is-max-desktop" style="max-width: 90%;">
+        <div class="hero-body">
+          <h2 class="subtitle has-text-centered"
+            style="margin-bottom: 30px;color: rgb(145, 98, 4); font-size: 30px; font-weight: bold;">
+            Whole-body Control of Humanoid Robots with Language Instructions
+          </h2>
+
+          <div style="
+        display: flex;
+        overflow-x: auto;
+        gap: 20px;
+        padding: 10px;
+        scroll-behavior: smooth;
+        scrollbar-width: thin;         /* Firefox */
+        scrollbar-color: #ccc transparent;
+      ">
+            <!-- 单个视频容器 -->
+            <div style="flex: 0 0 auto; text-align: center; width: 24%;">
+              <h2 style="margin-bottom: 8px; font-weight: 600;">Akimbo</h3>
+                <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+                  <source src="static/videos/beyondmimic/akimbo.mp4" type="video/mp4">
+                </video>
+            </div>
+
+            <div style="flex: 0 0 auto; text-align: center; width: 24%;">
+              <h2 style="margin-bottom: 8px; font-weight: 600;">Jump Jack</h3>
+                <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+                  <source src="static/videos/beyondmimic/jump_jack.mp4" type="video/mp4">
+                </video>
+            </div>
+
+            <div style="flex: 0 0 auto; text-align: center; width: 24%;">
+              <h2 style="margin-bottom: 8px; font-weight: 600;">Play the role of Elephant</h3>
+                <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+                  <source src="static/videos/beyondmimic/elephant.mp4" type="video/mp4">
+                </video>
+            </div>
+            <div style="flex: 0 0 auto; text-align: center; width: 24%;">
+              <h2 style="margin-bottom: 8px; font-weight: 600;">Conduct Orchestra</h3>
+                <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+                  <source src="static/videos/beyondmimic/orch.mp4" type="video/mp4">
+                </video>
+            </div>
+            <div style="flex: 0 0 auto; text-align: center; width: 24%;">
+              <h2 style="margin-bottom: 8px; font-weight: 600;">Dance Hiphop</h3>
+                <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+                  <source src="static/videos/beyondmimic/hiphop.mp4" type="video/mp4">
+                </video>
+            </div>
+            <div style="flex: 0 0 auto; text-align: center; width: 24%;">
+              <h2 style="margin-bottom: 8px; font-weight: 600;">Box</h3>
+                <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+                  <source src="static/videos/beyondmimic/box_side.mp4" type="video/mp4">
+                </video>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- End teaser video -->
+
+    <!-- Paper abstract -->
+    <section class="section hero is-light">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered has-text-centered">
+          <div class="column is-four-fifths">
+            <h2 class="title is-3">Abstract</h2>
+            <div class="content has-text-justified">
+              <!-- TODO: Replace with your paper abstract -->
+              <p style="line-height: 1.5;">
+                Humanoid robots are capable of performing various actions such as greeting, dancing, and even
+                backflipping. However, these motions are often hard-coded or specifically trained, which limits their
+                versatility. In this work, we present <b>FRoM-W1</b>, an open-source framework designed to
+                achieve general humanoid whole-body motion control using natural language. To universally understand
+                natural language and generate corresponding motions, as well as enable various humanoid robots to stably
+                execute these motions in the physical world under gravity, <b>FRoM-W1</b> operates in two stages: (a)
+                <b>H-GPT</b>: Utilizing massive human data, a large-scale language-driven human whole-body motion
+                generation model is trained to generate diverse natural behaviors. We further leverage the
+                Chain-of-Thought technique to improve the model’s generalization in instruction understanding. (b)
+                <b>H-ACT</b>: After retargeting generated human whole-body motions into robot-specific actions, a motion
+                controller that is pretrained and further fine-tuned through reinforcement learning in physical
+                simulation enables humanoid robots to accurately and stably perform corresponding actions. It is then
+                deployed on real robots via a modular simulation-to-reality module. We extensively evaluate our
+                framework on the Unitree H1 and G1 robots, demonstrating successful language-to-motion generation and
+                stable execution in both simulation and real-world settings. We fully open-source the entire
+                <b>FRoM-W1</b> framework and hope it will advance the development of humanoid intelligence.
+              </p>
+              <p class="has-text-centered is-size-7" style="margin:0; opacity:0.9;"><small>Foundational Humanoid Robot
+                  Model - Whole-Body Control, Version 1</small></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- End paper abstract -->
+
+
+    <!-- Image carousel -->
+    <section class="hero is-small">
+      <div class="hero-body">
+        <div class="container is-max-desktop">
+          <div class="columns is-centered has-text-centered">
+            <div class="column is-four-fifths">
+              <h2 class="title is-3" style="text-align: center;">Pipeline</h2>
+              <img src="assets/pipeline.png" alt="First research result visualization" loading="lazy"
+                style="width: 100%" />
+              <h2 style="text-align: left;">
+                <b>H-GPT</b> first translates language instructions into motion sequences using CoT. <b>H-ACT</b> then retargets the
+                generated motions to different robot embodiments and executes these motions on real robots through motion-tracking control policies.
+              </h2>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- End image carousel -->
+
+
+    <!-- Youtube video -->
+
+
+
+
+    <!-- Video carousel -->
+    <section class="hero teaser" style="padding: 40px 0;">
+      <div class="container is-max-desktop" style="max-width: 60%; min-width: 1200px">
+        <div class="hero-body">
+          <h2 class="title is-3" style="text-align: center;">
+            One instruction for different embodiments
+          </h2>
+
+          <!-- 视频网格 -->
+          <div style="
+        display: grid;
+        grid-template-columns: 10% 30% 30% 30%;
+        grid-gap: 20px;
+        justify-items: center;
+        margin-right: 20%;
+      ">
+            <div>
+            </div>
+
+            <div>
+              <h3 class="title is-4">
+                Play Violin
+              </h3>
+            </div>
+
+            <div>
+              <h3 class="title is-4">
+                Box
+              </h3>
+            </div>
+
+            <div>
+              <h2 class="title is-4">
+                Squat
+              </h2>
+            </div>
+
+            <div>
+              <h2 class="title is-4">
+                Unitree G1
+              </h2>
+            </div>
+
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/two_embodiment/g1_violin.mp4" type="video/mp4">
+            </video>
+
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/two_embodiment/g1_box.mp4" type="video/mp4">
+            </video>
+
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/two_embodiment/g1_squat.mp4" type="video/mp4">
+            </video>
+
+            <div>
+              <h2 class="title is-4">
+                Unitree H1
+              </h2>
+            </div>
+
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/two_embodiment/h1_violin.mp4" type="video/mp4">
+            </video>
+
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/two_embodiment/h1_box.mp4" type="video/mp4">
+            </video>
+
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/two_embodiment/h1_squat.mp4" type="video/mp4">
+            </video>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- End video carousel -->
+
+    <section class="hero teaser" style="padding: 40px 0;">
+      <div class="container is-max-desktop" style="max-width: 40%; min-width: 600px">
+        <div class="hero-body">
+          <h2 class="title is-3" style="text-align: center;">
+            One instruction for different policies
+          </h2>
+
+          <!-- 视频网格 -->
+          <div style="
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        grid-gap: 20px;
+        justify-items: center;
+        align-items: center;
+      ">
+
+            <div style="flex: 0 0 auto; text-align: center; width: 100%;">
+              <h2 style="margin-bottom: 8px; font-weight: 600; font-size: 18px;">Box (Human2Humanoid)</h2>
+              <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+                <source src="static/videos/two_policy/h1_h2h_box.mp4" type="video/mp4">
+              </video>
+            </div>
+
+            <div style="flex: 0 0 auto; text-align: center; width: 100%;">
+              <h2 style="margin-bottom: 8px; font-weight: 600; font-size: 18px;">Box (HugWBC)</h3>
+                <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+                  <source src="static/videos/two_policy/h1_hug_box.mp4" type="video/mp4">
+                </video>
+            </div>
+
+            <div style="flex: 0 0 auto; text-align: center; width: 100%;">
+              <h2 style="margin-bottom: 8px; font-weight: 600; font-size: 18px;">Elephant (Beyondmimic)</h3>
+                <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+                  <source src="static/videos/two_policy/g1_beyondmimic_elephant.mp4" type="video/mp4">
+                </video>
+            </div>
+
+            <div style="flex: 0 0 auto; text-align: center; width: 100%;">
+              <h2 style="margin-bottom: 8px; font-weight: 600; font-size: 18px;">Elephant (Twist2)</h3>
+                <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+                  <source src="static/videos/two_policy/g1_twist_elephant.mp4" type="video/mp4">
+                </video>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="hero teaser" style="padding: 40px 0;">
+      <div class="container is-max-desktop" style="max-width: 90%">
+        <div class="hero-body">
+          <h2 class="title is-3" style="text-align: center;">
+            Motion Diveristy
+          </h2>
+
+          <!-- 视频网格 -->
+          <div style="
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        grid-gap: 5px;
+        justify-items: center;
+        align-items: center;
+      ">
+
+            <!-- <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+          <source src="static/videos/mujoco/0.mp4" type="video/mp4">
+        </video>
+
+        <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+          <source src="static/videos/mujoco/1.mp4" type="video/mp4">
+        </video> -->
+
+            <!-- <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+          <source src="static/videos/mujoco/2.mp4" type="video/mp4">
+        </video> -->
+
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/3.mp4" type="video/mp4">
+            </video>
+
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/4.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/5.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/6.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/7.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/8.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/9.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/11.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/12.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/15.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/17.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/20.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/21.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/22.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/23.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/25.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/26.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/28.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/30.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/31.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/32.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/33.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/35.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/36.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/37.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/38.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/39.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/40.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/41.mp4" type="video/mp4">
+            </video>
+            <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
+              <source src="static/videos/mujoco/42.mp4" type="video/mp4">
+            </video>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!--BibTex citation -->
+    <section class="section" id="BibTeX">
+      <div class="container is-max-desktop content">
+        <div class="bibtex-header">
+          <h2 class="title">BibTeX</h2>
+          <button class="copy-bibtex-btn" onclick="copyBibTeX()" title="Copy BibTeX to clipboard">
+            <i class="fas fa-copy"></i>
+            <span class="copy-text">Copy</span>
+          </button>
+        </div>
+        <pre id="bibtex-code"><code>@misc{FRoM-W1,
+  author = {Peng Li, Zihan Zhuang, Yangfan Gao, Yi Dong, Sixian Li, Changhao Jiang, Shihan Dou, Zhiheng Xi, Enyu Zhou, Jixuan Huang, Hui Li, Jingjing Gong, Xingjun Ma, Tao Gui, Zuxuan Wu, Qi Zhang, Xuanjing Huang, Yu-Gang Jiang, Xipeng Qiu},
+  title = {FRoM-W1: Towards General Humanoid Whole-Body Control with Language Instructions},
+  url = {https://github.com/OpenMOSS/FRoM-W1},
+  year = {2025}
+}</code></pre>
+      </div>
+    </section>
+    <!--End BibTex citation -->
+
+
+    <footer class="footer">
+      <div class="container">
+        <div class="columns is-centered">
+          <div class="column is-8">
+            <div class="content">
+
+              <p>
+                This page was built using the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template"
+                  target="_blank">Academic Project Page Template</a> which was adopted from the <a
+                  href="https://nerfies.github.io" target="_blank">Nerfies</a> project page.
+                You are free to borrow the source code of this website, we just ask that you link back to this page in
+                the footer. <br> This website is licensed under a <a rel="license"
+                  href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank">Creative
+                  Commons Attribution-ShareAlike 4.0 International License</a>.
+              </p>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Statcounter tracking code -->
+
+    <!-- You can add a tracker to track page visits by creating an account at statcounter.com -->
+
+    <!-- End of Statcounter Code -->
+
+</body>
+
+</html>
