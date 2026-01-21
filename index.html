@@ -7,22 +7,11 @@
 
   <!-- Primary Meta Tags -->
   <meta name="title"
-    content="FRoM-W1: An Open Framework for General Language to Humanoid Whole-Body Control - Peng Li, Zihan Zhuang, Yangfan Gao, Doney">
+    content="FRoM-W1: Towards General Humanoid Whole-Body Control with Language Instructions">
   <meta name="description"
-    content="In this work, we present FRoM-W1, an open-source framework that enables general whole-body motion control of humanoid robots using natural lan-
-    guage. To bridge natural language understanding, motion generation, and whole-body control, FRoM-W1 adopts a two-stage design. First, H-GPT, a LLaMA-based
-    text-to-human whole-body motion generator, is trained on large-scale text–motion
-    pairs distilled from video. A Chain-of-Thought (CoT)–augmented variant further
-    improves its ability to interpret abstract, compositional instructions. Then, retargeting is applied to convert the generated human motions into robot-specific,
-    hand-inclusive reference trajectories. Second, H-ACT learns whole-body control
-    policies in physics simulation to track these trajectories under full-body dynamics, ensuring physically stable execution. On top of this, a lightweight sim-to-real
-    deployment stack enables plug-and-play whole-body motion execution across different humanoid platforms. Experiments show that our generation model produces
-    diverse and physically feasible humanoid behaviors, achieving state-of-the-art performance with over 50% improvement on several benchmarks. The full framework Hans
-    waiting for evalfurther achieves consistent and stable task execution on Unitree H1 and Unitree G1
-    in the real world, validating both deployability and cross-embodiment capability.
-    We release the entire ecosystem, including models, evaluation suites, and deployment code, and hope it will advance the development of humanoid intelligence.">
-  <meta name="keywords" content="Humanoid, Whole-Body Control, LLM">
-  <meta name="author" content="Peng Li, Zihan Zhuang, Yangfan Gao, Doney">
+    content="Humanoid robots are capable of performing various actions such as greeting, dancing and even backflipping. However, these motions are often hard-coded or specifically trained, which limits their versatility. In this work, we present FRoM-W1, an open-source framework designed to achieve general humanoid whole-body motion control using natural language. To universally understand natural language and generate corresponding motions, as well as enable various humanoid robots to stably execute these motions in the physical world under gravity, FRoM-W1 operates in two stages: (a) H-GPT: utilizing massive human data, a large-scale language-driven human whole-body motion generation model is trained to generate diverse natural behaviors. We further leverage the Chain-of-Thought technique to improve the model's generalization in instruction understanding. (b) H-ACT: After retargeting generated human whole-body motions into robot-specific actions, a motion controller that is pretrained and further fine-tuned through reinforcement learning in physical simulation enables humanoid robots to accurately and stably perform corresponding actions. It is then deployed on real robots via a modular simulation-to-reality module. We extensively evaluate FRoM-W1 on Unitree H1 and G1 robots. Results demonstrate superior performance on the HumanML3D-X benchmark for human whole-body motion generation, and our introduced reinforcement learning fine-tuning consistently improves both motion tracking accuracy and task success rates of these humanoid robots. We open-source the entire FRoM-W1 framework and hope it will advance the development of humanoid intelligence.">
+  <meta name="keywords" content="Humanoid Robot, Large Language Models, Motion Generation, Whole-Body Control">
+  <meta name="author" content="Peng Li, Zihan Zhuang, Yangfan Gao, Yi Dong, Sixian Li, Changhao Jiang, Tao Gui, Xipeng Qiu">
   <meta name="robots" content="index, follow">
   <meta name="language" content="English">
 
@@ -42,7 +31,7 @@
     hand-inclusive reference trajectories. Second, H-ACT learns whole-body control
     policies in physics simulation to track these trajectories under full-body dynamics, ensuring physically stable execution. On top of this, a lightweight sim-to-real
     deployment stack enables plug-and-play whole-body motion execution across different humanoid platforms. Experiments show that our generation model produces">
-  <meta property="og:url" content="https://hansz8.github.io/fr0m-w1/">
+  <meta property="og:url" content="https://openmoss.github.io/FRoM-W1/">
   <meta property="og:image" content="https://YOUR_DOMAIN.com/static/images/social_preview.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -64,8 +53,8 @@
   <title>FRoM-W1: Towards General Humanoid Whole-Body Control with Language Instructions</title>
 
   <!-- Favicon and App Icons -->
-  <link rel="icon" type="image/x-icon" href="static/images/FRoM.ico">
-  <link rel="apple-touch-icon" href="static/images/FRoM.ico">
+  <link rel="icon" type="image/x-icon" href="static/images/hi_logo.ico">
+  <link rel="apple-touch-icon" href="static/images/hi_logo.ico">
 
   <!-- Critical CSS - Load synchronously -->
   <link rel="stylesheet" href="static/css/bulma.min.css">
@@ -262,7 +251,7 @@
                 Language Instructions</h1>
               <div class="is-size-5 publication-authors">
                 <!-- Full author list with superscripts; mailto links only where emails are known -->
-                <span class="author-block"><a href="mailto:pengli@sii.edu.cn"
+                <span class="author-block"><a href="https://artpli.github.io"
                     style="text-decoration:none;color:inherit;">Peng Li</a><sup>1,2*†</sup>,</span>
                 <span class="author-block"><a href="mailto:zhzhuang24@m.fudan.edu.cn"
                     style="text-decoration:none;color:inherit;">Zihan Zhuang</a><sup>1*†</sup>,</span>
@@ -281,13 +270,13 @@
                 <span class="author-block">Hui Li<sup>1</sup>,</span>
                 <span class="author-block">JingJing Gong<sup>2</sup>,</span>
                 <span class="author-block">Xingjun Ma<sup>1,2</sup>,</span>
-                <span class="author-block"><a href="mailto:tgui@fudan.edu.cn"
+                <span class="author-block"><a href="https://guitaowufeng.github.io"
                     style="text-decoration:none;color:inherit;">Tao Gui</a><sup>1✉</sup>,</span>
                 <span class="author-block">Zuxuan Wu<sup>1,2</sup>,</span>
                 <span class="author-block">Qi Zhang<sup>1</sup>,</span>
                 <span class="author-block">Xuanjing Huang<sup>1</sup>,</span>
                 <span class="author-block">Yu-Gang Jiang<sup>1</sup>,</span>
-                <span class="author-block"><a href="mailto:xpqiu@fudan.edu.cn"
+                <span class="author-block"><a href="https://xpqiu.github.io/en.html"
                     style="text-decoration:none;color:inherit;">Xipeng Qiu</a><sup>1,2✉</sup></span>
               </div>
 
@@ -299,9 +288,19 @@
 
               <div class="column has-text-centered">
                 <div class="publication-links">
+                  <span class="link-block">
+                    <a href="https://openmoss.github.io/FRoM-W1" target="_blank"
+                      class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon">
+                        <i class="fas fa-globe"></i>
+                      </span>
+                      <span>Project Page</span>
+                    </a>
+                  </span>
+
                   <!-- TODO: Update with your arXiv paper ID -->
                   <span class="link-block">
-                    <a href="https://arxiv.org/pdf/<ARXIV PAPER ID>.pdf" target="_blank"
+                    <a href="https://arxiv.org/abs/2601.12799" target="_blank"
                       class="external-link button is-normal is-rounded is-dark">
                       <span class="icon">
                         <i class="fas fa-file-pdf"></i>
@@ -311,7 +310,7 @@
                   </span>
 
                   <!-- TODO: Add your supplementary material PDF or remove this section -->
-                  <span class="link-block">
+                  <!-- <span class="link-block">
                     <a href="static/pdfs/supplementary_material.pdf" target="_blank"
                       class="external-link button is-normal is-rounded is-dark">
                       <span class="icon">
@@ -319,7 +318,7 @@
                       </span>
                       <span>Supplementary</span>
                     </a>
-                  </span>
+                  </span> -->
 
                   <!-- TODO: Replace with your GitHub repository URL -->
                   <span class="link-block">
@@ -333,13 +332,35 @@
                   </span>
 
                   <!-- TODO: Update with your arXiv paper ID -->
-                  <span class="link-block">
+                  <!-- <span class="link-block">
                     <a href="https://arxiv.org/abs/<ARXIV PAPER ID>" target="_blank"
                       class="external-link button is-normal is-rounded is-dark">
                       <span class="icon">
                         <i class="ai ai-arxiv"></i>
                       </span>
                       <span>arXiv</span>
+                    </a>
+                  </span> -->
+
+                  <!-- HuggingFace Datasets -->
+                  <span class="link-block">
+                    <a href="https://huggingface.co/datasets/OpenMOSS-Team/FRoM-W1-Datasets" target="_blank"
+                      class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon">
+                        <i class="fas fa-database"></i>
+                      </span>
+                      <span>Datasets</span>
+                    </a>
+                  </span>
+
+                  <!-- HuggingFace Model -->
+                  <span class="link-block">
+                    <a href="https://huggingface.co/OpenMOSS-Team/FRoM-W1" target="_blank"
+                      class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon">
+                        <i class="fas fa-cube"></i>
+                      </span>
+                      <span>Models</span>
                     </a>
                   </span>
                 </div>
@@ -350,6 +371,8 @@
       </div>
     </section>
 
+
+    <!-- Preview Version Notice --><section class="hero is-small" style="padding: 10px 0; background-color: #f8f9fa;"> <div class="container is-max-desktop has-text-centered"> <p style="color: #666; font-style: italic; font-size: 16px; margin: 0;"> Note: this webpage is a preview version, and more demo videos are currently under development. Please stay tuned!</p> </div> 
 
     <!-- Teaser video-->
     <section class="hero teaser" style="padding: 40px 0;">
@@ -425,24 +448,19 @@
             <div class="content has-text-justified">
               <!-- TODO: Replace with your paper abstract -->
               <p style="line-height: 1.5;">
-                Humanoid robots are capable of performing various actions such as greeting, dancing, and even
-                backflipping. However, these motions are often hard-coded or specifically trained, which limits their
-                versatility. In this work, we present <b>FRoM-W1</b>, an open-source framework designed to
-                achieve general humanoid whole-body motion control using natural language. To universally understand
-                natural language and generate corresponding motions, as well as enable various humanoid robots to stably
-                execute these motions in the physical world under gravity, <b>FRoM-W1</b> operates in two stages: (a)
-                <b>H-GPT</b>: Utilizing massive human data, a large-scale language-driven human whole-body motion
-                generation model is trained to generate diverse natural behaviors. We further leverage the
-                Chain-of-Thought technique to improve the model’s generalization in instruction understanding. (b)
-                <b>H-ACT</b>: After retargeting generated human whole-body motions into robot-specific actions, a motion
-                controller that is pretrained and further fine-tuned through reinforcement learning in physical
-                simulation enables humanoid robots to accurately and stably perform corresponding actions. It is then
-                deployed on real robots via a modular simulation-to-reality module. We extensively evaluate our
-                framework on the Unitree H1 and G1 robots, demonstrating successful language-to-motion generation and
-                stable execution in both simulation and real-world settings. We fully open-source the entire
-                <b>FRoM-W1</b> framework and hope it will advance the development of humanoid intelligence.
+                Humanoid robots are capable of performing various actions such as greeting, dancing and even backflipping. 
+                However, these motions are often hard-coded or specifically trained, which limits their versatility. 
+                In this work, we present <b>FRoM-W1</b>, an open-source framework designed to achieve general humanoid whole-body motion control using natural language. 
+                To universally understand natural language and generate corresponding motions, as well as enable various humanoid robots to stably execute these motions in the physical world under gravity, 
+                <b>FRoM-W1</b> operates in two stages: (a) <b>H-GPT</b>: utilizing massive human data, a large-scale language-driven human whole-body motion generation model is trained to generate diverse natural behaviors. 
+                We further leverage the Chain-of-Thought technique to improve the model's generalization in instruction understanding. 
+                (b) <b>H-ACT</b>: After retargeting generated human whole-body motions into robot-specific actions, a motion controller that is pretrained and further fine-tuned through reinforcement learning in physical 
+                simulation enables humanoid robots to accurately and stably perform corresponding actions. It is then deployed on real robots via a modular simulation-to-reality module. We extensively evaluate 
+                <b>FRoM-W1</b> on Unitree H1 and G1 robots. Results demonstrate superior performance on the HumanML3D-X benchmark for human whole-body motion generation, and our introduced 
+                reinforcement learning fine-tuning consistently improves both motion tracking accuracy and task success rates of these humanoid robots. 
+                We open-source the entire <b>FRoM-W1</b> framework and hope it will advance the development of humanoid intelligence.
               </p>
-              <p class="has-text-centered is-size-7" style="margin:0; opacity:0.9;"><small>Foundational Humanoid Robot
+              <p class="has-text-centered is-size-7" style="margin:0; opacity:0.9;"><small>FRoM-W1: Foundational Humanoid Robot
                   Model - Whole-Body Control, Version 1</small></p>
             </div>
           </div>
@@ -462,7 +480,7 @@
               <img src="assets/pipeline.png" alt="First research result visualization" loading="lazy"
                 style="width: 100%" />
               <h2 style="text-align: left;">
-                <b>H-GPT</b> first translates language instructions into motion sequences using CoT. <b>H-ACT</b> then retargets the
+                <b>H-GPT</b> first translates language instructions into motion sequences with the CoT thinking. <b>H-ACT</b> then retargets the
                 generated motions to different robot embodiments and executes these motions on real robots through motion-tracking control policies.
               </h2>
             </div>
@@ -589,7 +607,7 @@
             </div>
 
             <div style="flex: 0 0 auto; text-align: center; width: 100%;">
-              <h2 style="margin-bottom: 8px; font-weight: 600; font-size: 18px;">Elephant (Beyondmimic)</h3>
+              <h2 style="margin-bottom: 8px; font-weight: 600; font-size: 18px;">Elephant (BeyondMimic)</h3>
                 <video autoplay muted loop controls preload="metadata" style="width: 100%; border-radius: 10px;">
                   <source src="static/videos/two_policy/g1_beyondmimic_elephant.mp4" type="video/mp4">
                 </video>
@@ -743,11 +761,14 @@
             <span class="copy-text">Copy</span>
           </button>
         </div>
-        <pre id="bibtex-code"><code>@misc{FRoM-W1,
-  author = {Peng Li, Zihan Zhuang, Yangfan Gao, Yi Dong, Sixian Li, Changhao Jiang, Shihan Dou, Zhiheng Xi, Enyu Zhou, Jixuan Huang, Hui Li, Jingjing Gong, Xingjun Ma, Tao Gui, Zuxuan Wu, Qi Zhang, Xuanjing Huang, Yu-Gang Jiang, Xipeng Qiu},
-  title = {FRoM-W1: Towards General Humanoid Whole-Body Control with Language Instructions},
-  url = {https://github.com/OpenMOSS/FRoM-W1},
-  year = {2025}
+        <pre id="bibtex-code"><code>@misc{li2026fromw1generalhumanoidwholebody,
+      title={FRoM-W1: Towards General Humanoid Whole-Body Control with Language Instructions}, 
+      author={Peng Li and Zihan Zhuang and Yangfan Gao and Yi Dong and Sixian Li and Changhao Jiang and Shihan Dou and Zhiheng Xi and Enyu Zhou and Jixuan Huang and Hui Li and Jingjing Gong and Xingjun Ma and Tao Gui and Zuxuan Wu and Qi Zhang and Xuanjing Huang and Yu-Gang Jiang and Xipeng Qiu},
+      year={2026},
+      eprint={2601.12799},
+      archivePrefix={arXiv},
+      primaryClass={cs.RO},
+      url={https://arxiv.org/abs/2601.12799}, 
 }</code></pre>
       </div>
     </section>
