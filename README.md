@@ -126,6 +126,8 @@ pip install -r requirements.txt
 
 ### 2. Whole-Body Human Motion Generation
 
+> [26/02/04] Note: This motion generation part is not fully organized yet. We are currently dealing with it and will update the files after checking. Please wait a moment.
+
 - Download the H-GPT whole-body motion tokenizer and the motion generator from the HuggingFace.
 - Replace the path to the motion tokenizer and the motion generator at line 55 & 78 of `./H-GPT/hGPT/configs/config_deployment_cot.yaml`
 - Run `bash ./H-GPT/app.sh` to deploy the H-GPT model to a gradio app and generate human motions.
