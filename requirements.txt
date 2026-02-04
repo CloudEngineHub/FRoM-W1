@@ -1,0 +1,13 @@
+joblib
+easydict
+tqdm
+scipy
+numpy==1.23.5
+matplotlib
+torch
+
+chumpy
+smplx
+trimesh
+
+mujoco
