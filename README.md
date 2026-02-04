@@ -228,7 +228,17 @@ After obtaining the retargeted robot sequence, you can conveniently use our **[R
 
 We made RoboJuDo available as a standalone module for everyone to use, so here you need to set it up according to the instructions in the RoboJuDo Readme.
 
+We have placed a retargeted `g1+dex3` example pkl file `0_feats_out.pkl` in the `./H-ACT/retarget/data/output` folder. 
+After setting up the RoboJuDo module, you can copy it to the `assets/motions/g1/phc_29/singles` directory of RoboJudo, then modify the path of `motion_name` in the `G1MotionCtrlCfg` class within the file `RoboJuDo/robojudo/config/g1/ctrl/g1_motion_ctrl_cfg.py` to match the path of the pkl file in the assets directory, and then run
 
+```
+python scripts/run_pipeline.py -c g1_h2h
+```
+to track the motion in the simulation.
+
+Since `H2H` is an earlier work, its tracking performance might be relatively limited. You can use newer and better tracking strategies in RoboJudo, such as `TWIST` and `BeyondMimic`.
+
+Have fun with it!
 
 
 ## 🛠️ Model Training and Evaluation
