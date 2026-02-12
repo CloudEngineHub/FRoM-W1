@@ -7,45 +7,52 @@ from torch import nn
 from .utils.resnet import Resnet1D
 from .utils.quantize_cnn import QuantizeEMAReset, Quantizer, QuantizeEMA, QuantizeReset
 
+
 class VQVae(nn.Module):
 
-    def __init__(self,
-                 nfeats,
-                 quantizer,
-                 code_num,
-                 code_dim,
-                 output_emb_width,
-                 down_t,
-                 stride_t,
-                 width,
-                 depth,
-                 dilation_growth_rate,
-                 norm,
-                 activation,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        nfeats,
+        quantizer,
+        code_num,
+        code_dim,
+        output_emb_width,
+        down_t,
+        stride_t,
+        width,
+        depth,
+        dilation_growth_rate,
+        norm,
+        activation,
+        **kwargs
+    ) -> None:
 
         super().__init__()
 
         self.code_dim = code_dim
-        self.encoder = Encoder(nfeats,
-                               output_emb_width,
-                               down_t,
-                               stride_t,
-                               width,
-                               depth,
-                               dilation_growth_rate,
-                               activation=activation,
-                               norm=norm)
+        self.encoder = Encoder(
+            nfeats,
+            output_emb_width,
+            down_t,
+            stride_t,
+            width,
+            depth,
+            dilation_growth_rate,
+            activation=activation,
+            norm=norm,
+        )
 
-        self.decoder = Decoder(nfeats,
-                               output_emb_width,
-                               down_t,
-                               stride_t,
-                               width,
-                               depth,
-                               dilation_growth_rate,
-                               activation=activation,
-                               norm=norm)
+        self.decoder = Decoder(
+            nfeats,
+            output_emb_width,
+            down_t,
+            stride_t,
+            width,
+            depth,
+            dilation_growth_rate,
+            activation=activation,
+            norm=norm,
+        )
 
         if quantizer == "ema_reset":
             self.quantizer = QuantizeEMAReset(code_num, code_dim, mu=0.99)
@@ -91,8 +98,7 @@ class VQVae(nn.Module):
         x_in = self.preprocess(features)
         x_encoder = self.encoder(x_in)
         x_encoder = self.postprocess(x_encoder)
-        x_encoder = x_encoder.contiguous().view(-1,
-                                                x_encoder.shape[-1])  # (NT, C)
+        x_encoder = x_encoder.contiguous().view(-1, x_encoder.shape[-1])  # (NT, C)
         code_idx = self.quantizer.quantize(x_encoder)
         code_idx = code_idx.view(N, -1)
 
@@ -109,18 +115,21 @@ class VQVae(nn.Module):
         x_out = self.postprocess(x_decoder)
         return x_out
 
+
 class Encoder(nn.Module):
 
-    def __init__(self,
-                 input_emb_width=3,
-                 output_emb_width=512,
-                 down_t=3,
-                 stride_t=2,
-                 width=512,
-                 depth=3,
-                 dilation_growth_rate=3,
-                 activation='relu',
-                 norm=None):
+    def __init__(
+        self,
+        input_emb_width=3,
+        output_emb_width=512,
+        down_t=3,
+        stride_t=2,
+        width=512,
+        depth=3,
+        dilation_growth_rate=3,
+        activation="relu",
+        norm=None,
+    ):
         super().__init__()
 
         blocks = []
@@ -132,11 +141,9 @@ class Encoder(nn.Module):
             input_dim = width
             block = nn.Sequential(
                 nn.Conv1d(input_dim, width, filter_t, stride_t, pad_t),
-                Resnet1D(width,
-                         depth,
-                         dilation_growth_rate,
-                         activation=activation,
-                         norm=norm),
+                Resnet1D(
+                    width, depth, dilation_growth_rate, activation=activation, norm=norm
+                ),
             )
             blocks.append(block)
         blocks.append(nn.Conv1d(width, output_emb_width, 3, 1, 1))
@@ -148,16 +155,18 @@ class Encoder(nn.Module):
 
 class Decoder(nn.Module):
 
-    def __init__(self,
-                 input_emb_width=3,
-                 output_emb_width=512,
-                 down_t=3,
-                 stride_t=2,
-                 width=512,
-                 depth=3,
-                 dilation_growth_rate=3,
-                 activation='relu',
-                 norm=None):
+    def __init__(
+        self,
+        input_emb_width=3,
+        output_emb_width=512,
+        down_t=3,
+        stride_t=2,
+        width=512,
+        depth=3,
+        dilation_growth_rate=3,
+        activation="relu",
+        norm=None,
+    ):
         super().__init__()
         blocks = []
 
@@ -167,14 +176,17 @@ class Decoder(nn.Module):
         for i in range(down_t):
             out_dim = width
             block = nn.Sequential(
-                Resnet1D(width,
-                         depth,
-                         dilation_growth_rate,
-                         reverse_dilation=True,
-                         activation=activation,
-                         norm=norm), nn.Upsample(scale_factor=2,
-                                                 mode='nearest'),
-                nn.Conv1d(width, out_dim, 3, 1, 1))
+                Resnet1D(
+                    width,
+                    depth,
+                    dilation_growth_rate,
+                    reverse_dilation=True,
+                    activation=activation,
+                    norm=norm,
+                ),
+                nn.Upsample(scale_factor=2, mode="nearest"),
+                nn.Conv1d(width, out_dim, 3, 1, 1),
+            )
             blocks.append(block)
         blocks.append(nn.Conv1d(width, width, 3, 1, 1))
         blocks.append(nn.ReLU())

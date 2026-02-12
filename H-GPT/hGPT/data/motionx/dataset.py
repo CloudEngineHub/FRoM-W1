@@ -31,7 +31,7 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License. We provide a license to use the code, 
+# limitations under the License. We provide a license to use the code,
 # please read the specific details carefully.
 
 import os
@@ -40,6 +40,7 @@ from tqdm import tqdm
 import numpy as np
 import torch
 import pickle
+
 
 def findAllFile(base):
     """
@@ -63,7 +64,7 @@ def collate_tensors(batch):
     # Function for collating a batch of PyTorch tensors
     dims = batch[0].dim()
     max_size = [max([b.size(i) for b in batch]) for i in range(dims)]
-    size = (len(batch), ) + tuple(max_size)
+    size = (len(batch),) + tuple(max_size)
     canvas = batch[0].new_zeros(size=size)
     for i, b in enumerate(batch):
         sub_tensor = canvas[i]
@@ -77,11 +78,13 @@ def mld_collate(batch):
     # Adapter function for collating batches in the MotionDatasetV2 class
     notnone_batches = [b for b in batch if b is not None]
     adapted_batch = {
-        "motion":
-        collate_tensors([torch.tensor(b[0]).float() for b in notnone_batches]),
+        "motion": collate_tensors(
+            [torch.tensor(b[0]).float() for b in notnone_batches]
+        ),
         "name": [b[1] for b in notnone_batches],
-        "length":
-        collate_tensors([torch.tensor(b[2]).float() for b in notnone_batches]),
+        "length": collate_tensors(
+            [torch.tensor(b[2]).float() for b in notnone_batches]
+        ),
     }
 
     return adapted_batch
@@ -89,7 +92,14 @@ def mld_collate(batch):
 
 class MotionDatasetV2(data.Dataset):
     # Custom dataset class for motion data
-    def __init__(self, root_path, debug, load_cache=False, save_cache=False, cache_path='motion_cache.pkl'):
+    def __init__(
+        self,
+        root_path,
+        debug,
+        load_cache=False,
+        save_cache=False,
+        cache_path="motion_cache.pkl",
+    ):
 
         # Lists to store motion data and corresponding lengths
         self.data = []
@@ -97,7 +107,7 @@ class MotionDatasetV2(data.Dataset):
 
         # Finding all files in the specified directory
         self.id_list = findAllFile(root_path)
-        
+
         # fix https://github.com/IDEA-Research/Motion-X/issues/29
         # print ("!!!!Notice: fixing https://github.com/IDEA-Research/Motion-X/issues/29")
         # self.id_list = [item for item in self.id_list if 'GRAB' in item]
@@ -105,22 +115,22 @@ class MotionDatasetV2(data.Dataset):
         # Limiting the number of files for debugging purposes
         if debug:
             self.id_list = self.id_list[:100]
-            
+
         if load_cache:
-            print ("Loading cached data ...")
+            print("Loading cached data ...")
             self.load_cache(cache_path)
         else:
-            print ("Processing data ...")
+            print("Processing data ...")
             # Loading motion data from files and populating data and lengths lists
             for name in tqdm(self.id_list):
                 motion = np.load(name)
                 self.lengths.append(motion.shape[0])
-                self.data.append({'motion': motion, 'name': name})
-                
+                self.data.append({"motion": motion, "name": name})
+
             if save_cache:
-                print ("Saving cached data ...")
+                print("Saving cached data ...")
                 self.save_cache(cache_path)
-                
+
     def __len__(self):
         # Returns the number of items in the dataset
         return len(self.id_list)
@@ -128,34 +138,33 @@ class MotionDatasetV2(data.Dataset):
     def __getitem__(self, item):
         # Returns motion data, file name, and length for a given item
 
-        motion = self.data[item]['motion']
-        name = self.data[item]['name']
+        motion = self.data[item]["motion"]
+        name = self.data[item]["name"]
         length = self.lengths[item]
 
         return motion, name, length
-    
+
     def load_cache(self, cache_path):
-        with open(cache_path,'rb') as f:
+        with open(cache_path, "rb") as f:
             cached_data = pickle.load(f)
-            
-        self.data = cached_data['data']
-        self.lengths = cached_data['lengths']
-        self.id_list = cached_data['id_list']
-        
+
+        self.data = cached_data["data"]
+        self.lengths = cached_data["lengths"]
+        self.id_list = cached_data["id_list"]
+
         # rerank the cache
-        print ("rerank the cache")
+        print("rerank the cache")
         argsort_idx = np.argsort(np.array(self.lengths))
         self.lengths = [self.lengths[i] for i in argsort_idx]
         self.data = np.array(self.data)[argsort_idx]
         self.id_list = [self.id_list[i] for i in argsort_idx]
-        print ("done")
+        print("done")
 
     def save_cache(self, cache_path):
         cached_data = {
-            'data': self.data,
-            'lengths': self.lengths,
-            'id_list': self.id_list
+            "data": self.data,
+            "lengths": self.lengths,
+            "id_list": self.id_list,
         }
-        with open(cache_path,'wb') as f:
+        with open(cache_path, "wb") as f:
             pickle.dump(cached_data, f)
-

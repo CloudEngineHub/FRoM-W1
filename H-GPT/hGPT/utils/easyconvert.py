@@ -4,13 +4,14 @@ from .geometry_tools import *
 def rep_to_rep(oldtype, newtype, rotations):
     if newtype in ["matrix"]:
         return to_matrix(oldtype, rotations)
-    
+
     if oldtype in ["rotvec", "axisangle"]:
         return axis_angle_to(newtype, rotations)
     elif oldtype in ["matrix"]:
         return matrix_to(newtype, rotations)
     else:
         raise NotImplementedError("Only rotvec and matrix are supported.")
+
 
 def nfeats_of(rottype):
     if rottype in ["rotvec", "axisangle"]:

@@ -13,7 +13,7 @@ def load_example_input(txt_path):
         count += 1
         s = line.strip()
         s_l = s.split(" ")[0]
-        s_t = s[(len(s_l) + 1):]
+        s_t = s[(len(s_l) + 1) :]
         lens.append(int(s_l))
         texts.append(s_t)
         print("Length-{}: {}".format(s_l, s_t))
@@ -21,7 +21,9 @@ def load_example_input(txt_path):
 
 
 # render batch
-def render_batch(npy_dir, execute_python="./scripts/visualize_motion.sh", mode="sequence"):
+def render_batch(
+    npy_dir, execute_python="./scripts/visualize_motion.sh", mode="sequence"
+):
     os.system(f"{execute_python} {npy_dir} {mode}")
 
 
@@ -49,6 +51,7 @@ def render(execute_python, npy_path, jointtype, cfg_path):
 #     fig_path = Path(str(npy_path).replace(".npy",".png"))
 #     return fig_path
 
+
 # export fbx with hand params from pkl files
 # refer to /apdcephfs/share_1227775/shingxchen/AIMotion/TMOST/scripts/fbx_output_smplx.py
 def export_fbx_hand(pkl_path):
@@ -57,11 +60,9 @@ def export_fbx_hand(pkl_path):
 
     execute_python = "/apdcephfs/share_1227775/shingxchen/libs/blender_bpy/blender-2.93.2-linux-x64/blender"
     export_scripts = "./scripts/fbx_output_smplx.py"
-    os.system(
-        f"{execute_python} -noaudio --background --python {export_scripts}\
+    os.system(f"{execute_python} -noaudio --background --python {export_scripts}\
                 --input {input} \
-                --output {output}"
-    )
+                --output {output}")
 
 
 # export fbx without hand params from pkl files
@@ -72,8 +73,6 @@ def export_fbx(pkl_path):
 
     execute_python = "/apdcephfs/share_1227775/shingxchen/libs/blender_bpy/blender-2.93.2-linux-x64/blender"
     export_scripts = "./scripts/fbx_output.py"
-    os.system(
-        f"{execute_python} -noaudio --background --python {export_scripts}\
+    os.system(f"{execute_python} -noaudio --background --python {export_scripts}\
                 --input {input} \
-                --output {output}"
-    )
+                --output {output}")

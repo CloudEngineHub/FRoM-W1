@@ -8,12 +8,15 @@ from .utils import *
 import os
 from hGPT.config import instantiate_from_config
 
+
 class MMMetrics(Metric):
-    # MultiModality (MM) measures the diversity of generated 
+    # MultiModality (MM) measures the diversity of generated
     # motions within the same text description of motion
     full_state_update = True
-    
-    def __init__(self, cfg, dataname, mm_num_times=10, dist_sync_on_step=True, **kwargs):
+
+    def __init__(
+        self, cfg, dataname, mm_num_times=10, dist_sync_on_step=True, **kwargs
+    ):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.name = "MultiModality scores"
         self.cfg = cfg
@@ -21,14 +24,10 @@ class MMMetrics(Metric):
         self.mm_num_times = mm_num_times
 
         self.add_state("count", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("count_seq",
-                       default=torch.tensor(0),
-                       dist_reduce_fx="sum")
+        self.add_state("count_seq", default=torch.tensor(0), dist_reduce_fx="sum")
 
         self.metrics = ["MultiModality"]
-        self.add_state("MultiModality",
-                       default=torch.tensor(0.),
-                       dist_reduce_fx="sum")
+        self.add_state("MultiModality", default=torch.tensor(0.0), dist_reduce_fx="sum")
 
         # chached batches
         self.add_state("mm_motion_embeddings", default=[], dist_reduce_fx=None)
@@ -43,7 +42,9 @@ class MMMetrics(Metric):
         # init module
         self.t2m_textencoder = instantiate_from_config(cfg.METRIC.TM2T.t2m_textencoder)
         self.t2m_moveencoder = instantiate_from_config(cfg.METRIC.TM2T.t2m_moveencoder)
-        self.t2m_motionencoder = instantiate_from_config(cfg.METRIC.TM2T.t2m_motionencoder)
+        self.t2m_motionencoder = instantiate_from_config(
+            cfg.METRIC.TM2T.t2m_motionencoder
+        )
 
         # load pretrianed
         if self.dataname == "motionx":
@@ -55,20 +56,20 @@ class MMMetrics(Metric):
         elif self.dataname == "t2mx-rephrase":
             dataname = "t2mx-rephrase"
         else:
-            print ("dataset name: ", self.dataname)
+            print("dataset name: ", self.dataname)
             raise NotImplementedError
-        assert 't2mx' in dataname
-        
-        t2m_checkpoint = torch.load(os.path.join(
-            cfg.METRIC.TM2T.t2m_path, dataname,
-            "text_mot_match/model/finest.tar"), # finest_v1.tar")
-                                    map_location="cpu")
+        assert "t2mx" in dataname
+
+        t2m_checkpoint = torch.load(
+            os.path.join(
+                cfg.METRIC.TM2T.t2m_path, dataname, "text_mot_match/model/finest.tar"
+            ),  # finest_v1.tar")
+            map_location="cpu",
+        )
 
         self.t2m_textencoder.load_state_dict(t2m_checkpoint["text_encoder"])
-        self.t2m_moveencoder.load_state_dict(
-            t2m_checkpoint["movement_encoder"])
-        self.t2m_motionencoder.load_state_dict(
-            t2m_checkpoint["motion_encoder"])
+        self.t2m_moveencoder.load_state_dict(t2m_checkpoint["movement_encoder"])
+        self.t2m_motionencoder.load_state_dict(t2m_checkpoint["motion_encoder"])
 
         # freeze params
         self.t2m_textencoder.eval()
@@ -94,12 +95,12 @@ class MMMetrics(Metric):
 
         # cat all embeddings
         shapes = [item.shape for item in self.mm_motion_embeddings]
-        all_mm_motions = torch.cat(self.mm_motion_embeddings,
-                                   axis=0).cpu().numpy()
+        all_mm_motions = torch.cat(self.mm_motion_embeddings, axis=0).cpu().numpy()
         # print(all_mm_motions.shape)
         # print(self.mm_motion_embeddings[0].shape)
-        metrics['MultiModality'] = calculate_multimodality_np(
-            all_mm_motions, self.mm_num_times)
+        metrics["MultiModality"] = calculate_multimodality_np(
+            all_mm_motions, self.mm_num_times
+        )
 
         # Reset
         self.reset()
@@ -117,11 +118,10 @@ class MMMetrics(Metric):
         align_idx = np.argsort(lengths_rst)[::-1].copy()
         feats_rst = feats_rst[align_idx]
         lengths_rst = np.array(lengths_rst)[align_idx]
-        recmotion_embeddings = self.get_motion_embeddings(
-            feats_rst, lengths_rst)
+        recmotion_embeddings = self.get_motion_embeddings(feats_rst, lengths_rst)
         cache = [0] * len(lengths_rst)
         for i in range(len(lengths_rst)):
-            cache[align_idx[i]] = recmotion_embeddings[i:i + 1]
+            cache[align_idx[i]] = recmotion_embeddings[i : i + 1]
 
         mm_motion_embeddings = torch.cat(cache, axis=0).unsqueeze(0)
         # self.mm_motion_embeddings.extend(cache)
@@ -131,9 +131,9 @@ class MMMetrics(Metric):
 
     def get_motion_embeddings(self, feats: Tensor, lengths: List[int]):
         m_lens = torch.tensor(lengths)
-        m_lens = torch.div(m_lens,
-                           self.cfg.DATASET.MOTIONX.UNIT_LEN,
-                           rounding_mode="floor")
+        m_lens = torch.div(
+            m_lens, self.cfg.DATASET.MOTIONX.UNIT_LEN, rounding_mode="floor"
+        )
 
         # if feats.shape[2] == 623:
         #     body_joints = 22
@@ -143,10 +143,10 @@ class MMMetrics(Metric):
         #     selected_idx = torch.tensor(selected_idx, dtype=torch.int32, device = feats.device)
         #     feats = feats[:, :, selected_idx]
         #     assert feats.shape[2] == 263
-        '''
+        """
             yfgao: `feats` for VQ movement encoder previously
             `feats[..., :-4]` for movement encoder now
-        '''
+        """
         mov = self.t2m_moveencoder(feats[..., :-4]).detach()
         # mov = self.t2m_moveencoder(feats).detach()
         emb = self.t2m_motionencoder(mov, m_lens)

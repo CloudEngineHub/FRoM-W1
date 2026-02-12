@@ -8,50 +8,51 @@ from torchmetrics.functional import pairwise_euclidean_distance
 
 from hGPT.config import instantiate_from_config
 
-from .utils import * 
+from .utils import *
+
 
 class TM2TMetrics(Metric):
     full_state_update = True
-    
-    def __init__(self,
-                 cfg,
-                 dataname,
-                 top_k=3,
-                 R_size=32,
-                 diversity_times=300,
-                 dist_sync_on_step=True,
-                 unit_len=4,
-                 **kwargs):
+
+    def __init__(
+        self,
+        cfg,
+        dataname,
+        top_k=3,
+        R_size=32,
+        diversity_times=300,
+        dist_sync_on_step=True,
+        unit_len=4,
+        **kwargs,
+    ):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.cfg = cfg
         self.dataname = dataname
         self.name = "matching, fid, and diversity scores"
-        
+
         self.top_k = top_k
         self.R_size = R_size
         self.diversity_times = diversity_times
-        
-        self.text = True # 'lm' in cfg.TRAIN.STAGE and cfg.model.params.task == 't2m'
+
+        self.text = True  # 'lm' in cfg.TRAIN.STAGE and cfg.model.params.task == 't2m'
         self.unit_len = unit_len
 
         self.add_state("count", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("count_seq",
-                       default=torch.tensor(0),
-                       dist_reduce_fx="sum")
+        self.add_state("count_seq", default=torch.tensor(0), dist_reduce_fx="sum")
 
         self.metrics = []
 
         # Matching scores
         if self.text:
-            self.add_state("Matching_score",
-                            default=torch.tensor(0.0),
-                            dist_reduce_fx="sum")
-            self.add_state("gt_Matching_score",
-                            default=torch.tensor(0.0),
-                            dist_reduce_fx="sum")
+            self.add_state(
+                "Matching_score", default=torch.tensor(0.0), dist_reduce_fx="sum"
+            )
+            self.add_state(
+                "gt_Matching_score", default=torch.tensor(0.0), dist_reduce_fx="sum"
+            )
             self.Matching_metrics = ["Matching_score", "gt_Matching_score"]
-            
+
             for k in range(1, top_k + 1):
                 self.add_state(
                     f"R_precision_top_{str(k)}",
@@ -59,7 +60,7 @@ class TM2TMetrics(Metric):
                     dist_reduce_fx="sum",
                 )
                 self.Matching_metrics.append(f"R_precision_top_{str(k)}")
-                
+
             for k in range(1, top_k + 1):
                 self.add_state(
                     f"gt_R_precision_top_{str(k)}",
@@ -75,12 +76,8 @@ class TM2TMetrics(Metric):
         self.metrics.extend(["FID", "gt_FID"])
 
         # Diversity
-        self.add_state("Diversity",
-                       default=torch.tensor(0.0),
-                       dist_reduce_fx="sum")
-        self.add_state("gt_Diversity",
-                       default=torch.tensor(0.0),
-                       dist_reduce_fx="sum")
+        self.add_state("Diversity", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("gt_Diversity", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.metrics.extend(["Diversity", "gt_Diversity"])
 
         # Chached batches
@@ -98,7 +95,9 @@ class TM2TMetrics(Metric):
         # init module
         self.t2m_textencoder = instantiate_from_config(cfg.METRIC.TM2T.t2m_textencoder)
         self.t2m_moveencoder = instantiate_from_config(cfg.METRIC.TM2T.t2m_moveencoder)
-        self.t2m_motionencoder = instantiate_from_config(cfg.METRIC.TM2T.t2m_motionencoder)
+        self.t2m_motionencoder = instantiate_from_config(
+            cfg.METRIC.TM2T.t2m_motionencoder
+        )
 
         # load pretrianed
         if self.dataname == "motionx":
@@ -110,19 +109,20 @@ class TM2TMetrics(Metric):
         elif self.dataname == "t2mx-rephrase":
             dataname = "t2mx-rephrase"
         else:
-            print ("dataset name: ", self.dataname)
+            print("dataset name: ", self.dataname)
             raise NotImplementedError
-        assert 't2mx' in dataname
+        assert "t2mx" in dataname
 
-        t2m_checkpoint = torch.load(os.path.join(
-            cfg.METRIC.TM2T.t2m_path, dataname, "text_mot_match/model/finest.tar"),
-                                    map_location="cpu")
+        t2m_checkpoint = torch.load(
+            os.path.join(
+                cfg.METRIC.TM2T.t2m_path, dataname, "text_mot_match/model/finest.tar"
+            ),
+            map_location="cpu",
+        )
 
         self.t2m_textencoder.load_state_dict(t2m_checkpoint["text_encoder"])
-        self.t2m_moveencoder.load_state_dict(
-            t2m_checkpoint["movement_encoder"])
-        self.t2m_motionencoder.load_state_dict(
-            t2m_checkpoint["motion_encoder"])
+        self.t2m_moveencoder.load_state_dict(t2m_checkpoint["movement_encoder"])
+        self.t2m_motionencoder.load_state_dict(t2m_checkpoint["motion_encoder"])
 
         # freeze params
         self.t2m_textencoder.eval()
@@ -149,26 +149,27 @@ class TM2TMetrics(Metric):
 
         # cat all embeddings
         shuffle_idx = torch.randperm(count_seq)
-        all_texts = torch.cat(self.text_embeddings,
-                              axis=0).cpu()[shuffle_idx, :]
-        all_genmotions = torch.cat(self.recmotion_embeddings,
-                                   axis=0).cpu()[shuffle_idx, :]
-        all_gtmotions = torch.cat(self.gtmotion_embeddings,
-                                  axis=0).cpu()[shuffle_idx, :]
+        all_texts = torch.cat(self.text_embeddings, axis=0).cpu()[shuffle_idx, :]
+        all_genmotions = torch.cat(self.recmotion_embeddings, axis=0).cpu()[
+            shuffle_idx, :
+        ]
+        all_gtmotions = torch.cat(self.gtmotion_embeddings, axis=0).cpu()[
+            shuffle_idx, :
+        ]
 
         # Compute r-precision
         assert count_seq > self.R_size
-        top_k_mat = torch.zeros((self.top_k, ))
+        top_k_mat = torch.zeros((self.top_k,))
         for i in range(count_seq // self.R_size):
             # [bs=32, 1*256]
-            group_texts = all_texts[i * self.R_size:(i + 1) * self.R_size]
+            group_texts = all_texts[i * self.R_size : (i + 1) * self.R_size]
             # [bs=32, 1*256]
-            group_motions = all_genmotions[i * self.R_size:(i + 1) *
-                                           self.R_size]
+            group_motions = all_genmotions[i * self.R_size : (i + 1) * self.R_size]
             # dist_mat = pairwise_euclidean_distance(group_texts, group_motions)
             # [bs=32, 32]
-            dist_mat = euclidean_distance_matrix(group_texts,
-                                                 group_motions).nan_to_num()
+            dist_mat = euclidean_distance_matrix(
+                group_texts, group_motions
+            ).nan_to_num()
             # print(dist_mat[:5])
             self.Matching_score += dist_mat.trace()
             argsmax = torch.argsort(dist_mat, dim=1)
@@ -180,16 +181,16 @@ class TM2TMetrics(Metric):
 
         # Compute r-precision with gt
         assert count_seq > self.R_size
-        top_k_mat = torch.zeros((self.top_k, ))
+        top_k_mat = torch.zeros((self.top_k,))
         for i in range(count_seq // self.R_size):
             # [bs=32, 1*256]
-            group_texts = all_texts[i * self.R_size:(i + 1) * self.R_size]
+            group_texts = all_texts[i * self.R_size : (i + 1) * self.R_size]
             # [bs=32, 1*256]
-            group_motions = all_gtmotions[i * self.R_size:(i + 1) *
-                                          self.R_size]
+            group_motions = all_gtmotions[i * self.R_size : (i + 1) * self.R_size]
             # [bs=32, 32]
-            dist_mat = euclidean_distance_matrix(group_texts,
-                                                 group_motions).nan_to_num()
+            dist_mat = euclidean_distance_matrix(
+                group_texts, group_motions
+            ).nan_to_num()
             # match score
             self.gt_Matching_score += dist_mat.trace()
             argsmax = torch.argsort(dist_mat, dim=1)
@@ -211,10 +212,12 @@ class TM2TMetrics(Metric):
 
         # Compute diversity
         assert count_seq > self.diversity_times
-        metrics["Diversity"] = calculate_diversity_np(all_genmotions,
-                                                      self.diversity_times)
+        metrics["Diversity"] = calculate_diversity_np(
+            all_genmotions, self.diversity_times
+        )
         metrics["gt_Diversity"] = calculate_diversity_np(
-            all_gtmotions, self.diversity_times)
+            all_gtmotions, self.diversity_times
+        )
 
         # Reset
         self.reset()
@@ -222,21 +225,23 @@ class TM2TMetrics(Metric):
         return {**metrics}
 
     @torch.no_grad()
-    def update(self,
-               feats_ref: Tensor,
-               feats_rst: Tensor,
-               lengths_ref: List[int],
-               lengths_rst: List[int],
-               word_embs: Tensor = None,
-               pos_ohot: Tensor = None,
-               text_lengths: Tensor = None):
+    def update(
+        self,
+        feats_ref: Tensor,
+        feats_rst: Tensor,
+        lengths_ref: List[int],
+        lengths_rst: List[int],
+        word_embs: Tensor = None,
+        pos_ohot: Tensor = None,
+        text_lengths: Tensor = None,
+    ):
 
         # print (f"feats_ref: {feats_ref}")
         # print (f"feats_rst: {feats_rst}")
         # print (f"lengths_ref: {len(feats_ref[0])}")
         # print (f"lengths_rst: {len(feats_rst[0])}")
         # exit(0)
-        
+
         self.count += sum(lengths_ref)
         self.count_seq += len(lengths_ref)
 
@@ -246,20 +251,20 @@ class TM2TMetrics(Metric):
         feats_ref = feats_ref[align_idx]
         feats_rst = feats_rst[align_idx]
         lengths_ref = lengths_ref[align_idx]
-        lengths_ref = torch.div(lengths_ref,
-                           self.unit_len,
-                           rounding_mode="floor")
-        
+        lengths_ref = torch.div(lengths_ref, self.unit_len, rounding_mode="floor")
+
         motion_mov_ref = self.t2m_moveencoder(feats_ref[..., :-4]).detach()
         motion_emb_ref = self.t2m_motionencoder(motion_mov_ref, lengths_ref)
-        self.gtmotion_embeddings.append(torch.flatten(motion_emb_ref,
-                                            start_dim=1).detach())
+        self.gtmotion_embeddings.append(
+            torch.flatten(motion_emb_ref, start_dim=1).detach()
+        )
 
         motion_mov_rst = self.t2m_moveencoder(feats_rst[..., :-4]).detach()
         motion_emb_rst = self.t2m_motionencoder(motion_mov_rst, lengths_ref)
-        self.recmotion_embeddings.append(torch.flatten(motion_emb_rst,
-                                            start_dim=1).detach())
-        
+        self.recmotion_embeddings.append(
+            torch.flatten(motion_emb_rst, start_dim=1).detach()
+        )
+
         # gtmotion_embeddings = self.get_motion_embeddings(
         #     feats_ref, lengths_ref)
         # cache = [0] * len(lengths_ref)
@@ -278,7 +283,9 @@ class TM2TMetrics(Metric):
 
         # T2m text encoder
         if self.text:
-            text_emb = self.t2m_textencoder(word_embs, pos_ohot, text_lengths)[align_idx]
+            text_emb = self.t2m_textencoder(word_embs, pos_ohot, text_lengths)[
+                align_idx
+            ]
             text_embeddings = torch.flatten(text_emb, start_dim=1).detach()
             self.text_embeddings.append(text_embeddings)
 

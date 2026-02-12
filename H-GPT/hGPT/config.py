@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from os.path import join as pjoin
 from omegaconf import OmegaConf
 
+
 def get_obj_from_str(string, reload=False):
     """
     Get object from string
@@ -24,17 +25,19 @@ def instantiate_from_config(config):
         raise KeyError("Expected key `target` to instantiate.")
     return get_obj_from_str(config["target"])(**config.get("params", dict()))
 
+
 def get_module_config(cfg, filepath="./configs"):
     """
     Load yaml config files from subfolders
     """
-    yamls = glob.glob(pjoin(filepath, '*', '*.yaml'))
-    yamls = [y.replace(filepath, '') for y in yamls]
+    yamls = glob.glob(pjoin(filepath, "*", "*.yaml"))
+    yamls = [y.replace(filepath, "") for y in yamls]
     for yaml in yamls:
-        nodes = yaml.replace('.yaml', '').replace(os.sep, '.')
-        nodes = nodes[1:] if nodes[0] == '.' else nodes
+        nodes = yaml.replace(".yaml", "").replace(os.sep, ".")
+        nodes = nodes[1:] if nodes[0] == "." else nodes
         OmegaConf.update(cfg, nodes, OmegaConf.load(filepath + yaml))
     return cfg
+
 
 def resume_config(cfg: OmegaConf):
     """
@@ -48,18 +51,21 @@ def resume_config(cfg: OmegaConf):
             # Wandb
             wandb_files = os.listdir(pjoin(resume, "wandb", "latest-run"))
             wandb_run = [item for item in wandb_files if "run-" in item][0]
-            cfg.LOGGER.WANDB.params.id = wandb_run.replace("run-","").replace(".wandb", "")
+            cfg.LOGGER.WANDB.params.id = wandb_run.replace("run-", "").replace(
+                ".wandb", ""
+            )
         else:
             raise ValueError("Resume path is not right.")
 
     return cfg
+
 
 def parse_args(phase="train"):
     """
     Parse arguments and load config files
     """
     parser = ArgumentParser()
-    
+
     # Training Options
     group = parser.add_argument_group("Training options")
     group.add_argument(
@@ -67,7 +73,7 @@ def parse_args(phase="train"):
         type=str,
         required=True,
         help="config file for asset paths",
-    )  
+    )
     group.add_argument(
         "--cfg",
         type=str,
@@ -75,32 +81,25 @@ def parse_args(phase="train"):
         help="config file",
     )
     if phase in ["train", "test"]:
-        group.add_argument("--task",
-                           type=str,
-                           required=False,
-                           help="evaluation task type")
-        group.add_argument("--num_nodes",
-                           type=int,
-                           required=False,
-                           help="number of nodes")
-        group.add_argument("--device",
-                           type=int,
-                           nargs="+",
-                           required=False,
-                           help="training device")
-        group.add_argument("--batch_size",
-                           type=int,
-                           required=False,
-                           help="training batch size")
-        group.add_argument("--nodebug",
-                           action="store_true",
-                           required=False,
-                           help="debug or not")
+        group.add_argument(
+            "--task", type=str, required=False, help="evaluation task type"
+        )
+        group.add_argument(
+            "--num_nodes", type=int, required=False, help="number of nodes"
+        )
+        group.add_argument(
+            "--device", type=int, nargs="+", required=False, help="training device"
+        )
+        group.add_argument(
+            "--batch_size", type=int, required=False, help="training batch size"
+        )
+        group.add_argument(
+            "--nodebug", action="store_true", required=False, help="debug or not"
+        )
     elif phase == "demo":
-        group.add_argument("--task",
-            type=str,
-            required=False,
-            help="evaluation task type")
+        group.add_argument(
+            "--task", type=str, required=False, help="evaluation task type"
+        )
         group.add_argument(
             "--example",
             type=str,
@@ -116,7 +115,7 @@ def parse_args(phase="train"):
     else:
         raise NotImplementedError
     params = parser.parse_args()
-    
+
     # Load yaml config files
     OmegaConf.register_new_resolver("eval", eval)
     cfg_assets = OmegaConf.load(params.cfg_assets)
@@ -126,7 +125,9 @@ def parse_args(phase="train"):
 
     # Update config with arguments
     if phase in ["train", "test"]:
-        cfg.TRAIN.BATCH_SIZE = params.batch_size if params.batch_size else cfg.TRAIN.BATCH_SIZE
+        cfg.TRAIN.BATCH_SIZE = (
+            params.batch_size if params.batch_size else cfg.TRAIN.BATCH_SIZE
+        )
         cfg.DEVICE = params.device if params.device else cfg.DEVICE
         cfg.NUM_NODES = params.num_nodes if params.num_nodes else cfg.NUM_NODES
         cfg.model.params.task = params.task if params.task else cfg.model.params.task
@@ -144,7 +145,7 @@ def parse_args(phase="train"):
         cfg.DEVICE = [0]
         cfg.NAME = "debug--" + cfg.NAME
         # cfg.LOGGER.VAL_EVERY_STEPS = 1
-        
+
     # Resume config
     cfg = resume_config(cfg)
     return cfg

@@ -8,20 +8,23 @@ from bert_score import score as score_bert
 import spacy
 from hGPT.config import instantiate_from_config
 
+
 class M2TMetrics(Metric):
 
-    def __init__(self,
-                 cfg,
-                 w_vectorizer,
-                 dataname,
-                 top_k,
-                 bleu_k,
-                 R_size,
-                 max_text_len,
-                 diversity_times,
-                 dist_sync_on_step,
-                 unit_length,
-                 **kwargs):
+    def __init__(
+        self,
+        cfg,
+        w_vectorizer,
+        dataname,
+        top_k,
+        bleu_k,
+        R_size,
+        max_text_len,
+        diversity_times,
+        dist_sync_on_step,
+        unit_length,
+        **kwargs,
+    ):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.cfg = cfg
         self.dataname = dataname
@@ -36,19 +39,17 @@ class M2TMetrics(Metric):
         self.unit_length = unit_length
 
         self.add_state("count", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("count_seq",
-                       default=torch.tensor(0),
-                       dist_reduce_fx="sum")
+        self.add_state("count_seq", default=torch.tensor(0), dist_reduce_fx="sum")
 
         self.metrics = []
 
         # Matching scores
-        self.add_state("Matching_score",
-                       default=torch.tensor(0.0),
-                       dist_reduce_fx="sum")
-        self.add_state("gt_Matching_score",
-                       default=torch.tensor(0.0),
-                       dist_reduce_fx="sum")
+        self.add_state(
+            "Matching_score", default=torch.tensor(0.0), dist_reduce_fx="sum"
+        )
+        self.add_state(
+            "gt_Matching_score", default=torch.tensor(0.0), dist_reduce_fx="sum"
+        )
         self.Matching_metrics = ["Matching_score", "gt_Matching_score"]
         for k in range(1, top_k + 1):
             self.add_state(
@@ -76,14 +77,10 @@ class M2TMetrics(Metric):
             )
             self.metrics.append(f"Bleu_{str(k)}")
 
-        self.add_state("ROUGE_L",
-                       default=torch.tensor(0.0),
-                       dist_reduce_fx="sum")
+        self.add_state("ROUGE_L", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.metrics.append("ROUGE_L")
 
-        self.add_state("CIDEr",
-                       default=torch.tensor(0.0),
-                       dist_reduce_fx="sum")
+        self.add_state("CIDEr", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.metrics.append("CIDEr")
 
         # Chached batches
@@ -96,13 +93,18 @@ class M2TMetrics(Metric):
         # T2M Evaluator
         self._get_t2m_evaluator(cfg)
 
-        self.nlp = spacy.load('en_core_web_sm')
+        self.nlp = spacy.load("en_core_web_sm")
 
-        if self.cfg.model.params.task == 'm2t':
+        if self.cfg.model.params.task == "m2t":
             from nlgmetricverse import NLGMetricverse, load_metric
+
             metrics = [
-                load_metric("bleu", resulting_name="bleu_1", compute_kwargs={"max_order": 1}),
-                load_metric("bleu", resulting_name="bleu_4", compute_kwargs={"max_order": 4}),
+                load_metric(
+                    "bleu", resulting_name="bleu_1", compute_kwargs={"max_order": 1}
+                ),
+                load_metric(
+                    "bleu", resulting_name="bleu_4", compute_kwargs={"max_order": 4}
+                ),
                 load_metric("rouge"),
                 load_metric("cider"),
             ]
@@ -116,8 +118,9 @@ class M2TMetrics(Metric):
         # init module
         self.t2m_textencoder = instantiate_from_config(cfg.METRIC.TM2T.t2m_textencoder)
         self.t2m_moveencoder = instantiate_from_config(cfg.METRIC.TM2T.t2m_moveencoder)
-        self.t2m_motionencoder = instantiate_from_config(cfg.METRIC.TM2T.t2m_motionencoder)
-
+        self.t2m_motionencoder = instantiate_from_config(
+            cfg.METRIC.TM2T.t2m_motionencoder
+        )
 
         # load pretrianed
         if self.dataname == "kit":
@@ -125,14 +128,15 @@ class M2TMetrics(Metric):
         else:
             dataname = "t2m"
 
-        t2m_checkpoint = torch.load(os.path.join(
-            cfg.METRIC.TM2T.t2m_path, dataname, "text_mot_match/model/finest_v1.tar"),
-                                    map_location='cpu')
+        t2m_checkpoint = torch.load(
+            os.path.join(
+                cfg.METRIC.TM2T.t2m_path, dataname, "text_mot_match/model/finest_v1.tar"
+            ),
+            map_location="cpu",
+        )
         self.t2m_textencoder.load_state_dict(t2m_checkpoint["text_encoder"])
-        self.t2m_moveencoder.load_state_dict(
-            t2m_checkpoint["movement_encoder"])
-        self.t2m_motionencoder.load_state_dict(
-            t2m_checkpoint["motion_encoder"])
+        self.t2m_moveencoder.load_state_dict(t2m_checkpoint["movement_encoder"])
+        self.t2m_motionencoder.load_state_dict(t2m_checkpoint["motion_encoder"])
 
         # freeze params
         self.t2m_textencoder.eval()
@@ -146,7 +150,7 @@ class M2TMetrics(Metric):
             p.requires_grad = False
 
     def _process_text(self, sentence):
-        sentence = sentence.replace('-', '')
+        sentence = sentence.replace("-", "")
         doc = self.nlp(sentence)
         word_list = []
         pos_list = []
@@ -154,8 +158,7 @@ class M2TMetrics(Metric):
             word = token.text
             if not word.isalpha():
                 continue
-            if (token.pos_ == 'NOUN'
-                    or token.pos_ == 'VERB') and (word != 'left'):
+            if (token.pos_ == "NOUN" or token.pos_ == "VERB") and (word != "left"):
                 word_list.append(token.lemma_)
             else:
                 word_list.append(word)
@@ -169,20 +172,18 @@ class M2TMetrics(Metric):
         for i, sentence in enumerate(texts):
             word_list, pos_list = self._process_text(sentence.strip())
             t_tokens = [
-                '%s/%s' % (word_list[i], pos_list[i])
-                for i in range(len(word_list))
+                "%s/%s" % (word_list[i], pos_list[i]) for i in range(len(word_list))
             ]
 
             if len(t_tokens) < self.max_text_len:
                 # pad with "unk"
-                tokens = ['sos/OTHER'] + t_tokens + ['eos/OTHER']
+                tokens = ["sos/OTHER"] + t_tokens + ["eos/OTHER"]
                 sent_len = len(tokens)
-                tokens = tokens + ['unk/OTHER'
-                                   ] * (self.max_text_len + 2 - sent_len)
+                tokens = tokens + ["unk/OTHER"] * (self.max_text_len + 2 - sent_len)
             else:
                 # crop
-                tokens = t_tokens[:self.max_text_len]
-                tokens = ['sos/OTHER'] + tokens + ['eos/OTHER']
+                tokens = t_tokens[: self.max_text_len]
+                tokens = ["sos/OTHER"] + tokens + ["eos/OTHER"]
                 sent_len = len(tokens)
             pos_one_hots = []
             word_embeddings = []
@@ -201,9 +202,9 @@ class M2TMetrics(Metric):
         align_idx = np.argsort(text_lengths.data.tolist())[::-1].copy()
 
         # get text embeddings
-        text_embeddings = self.t2m_textencoder(word_embs[align_idx],
-                                               pos_ohot[align_idx],
-                                               text_lengths[align_idx])
+        text_embeddings = self.t2m_textencoder(
+            word_embs[align_idx], pos_ohot[align_idx], text_lengths[align_idx]
+        )
 
         original_text_embeddings = text_embeddings.clone()
 
@@ -226,26 +227,26 @@ class M2TMetrics(Metric):
 
         # Cat cached batches and shuffle
         shuffle_idx = torch.randperm(count_seq)
-        all_motions = torch.cat(self.gtmotion_embeddings,
-                                axis=0).cpu()[shuffle_idx, :]
-        all_gttexts = torch.cat(self.gttext_embeddings,
-                                axis=0).cpu()[shuffle_idx, :]
-        all_predtexts = torch.cat(self.predtext_embeddings,
-                                  axis=0).cpu()[shuffle_idx, :]
+        all_motions = torch.cat(self.gtmotion_embeddings, axis=0).cpu()[shuffle_idx, :]
+        all_gttexts = torch.cat(self.gttext_embeddings, axis=0).cpu()[shuffle_idx, :]
+        all_predtexts = torch.cat(self.predtext_embeddings, axis=0).cpu()[
+            shuffle_idx, :
+        ]
 
         print("Computing metrics...")
 
         # Compute r-precision
         assert count_seq >= self.R_size
-        top_k_mat = torch.zeros((self.top_k, ))
+        top_k_mat = torch.zeros((self.top_k,))
         for i in range(count_seq // self.R_size):
             # [bs=32, 1*256]
-            group_texts = all_predtexts[i * self.R_size:(i + 1) * self.R_size]
+            group_texts = all_predtexts[i * self.R_size : (i + 1) * self.R_size]
             # [bs=32, 1*256]
-            group_motions = all_motions[i * self.R_size:(i + 1) * self.R_size]
+            group_motions = all_motions[i * self.R_size : (i + 1) * self.R_size]
             # [bs=32, 32]
-            dist_mat = euclidean_distance_matrix(group_texts,
-                                                 group_motions).nan_to_num()
+            dist_mat = euclidean_distance_matrix(
+                group_texts, group_motions
+            ).nan_to_num()
             # print(dist_mat[:5])
             self.Matching_score += dist_mat.trace()
             argsmax = torch.argsort(dist_mat, dim=1)
@@ -258,15 +259,16 @@ class M2TMetrics(Metric):
 
         # Compute r-precision with gt
         assert count_seq >= self.R_size
-        top_k_mat = torch.zeros((self.top_k, ))
+        top_k_mat = torch.zeros((self.top_k,))
         for i in range(count_seq // self.R_size):
             # [bs=32, 1*256]
-            group_texts = all_gttexts[i * self.R_size:(i + 1) * self.R_size]
+            group_texts = all_gttexts[i * self.R_size : (i + 1) * self.R_size]
             # [bs=32, 1*256]
-            group_motions = all_motions[i * self.R_size:(i + 1) * self.R_size]
+            group_motions = all_motions[i * self.R_size : (i + 1) * self.R_size]
             # [bs=32, 32]
-            dist_mat = euclidean_distance_matrix(group_texts,
-                                                 group_motions).nan_to_num()
+            dist_mat = euclidean_distance_matrix(
+                group_texts, group_motions
+            ).nan_to_num()
             # match score
             self.gt_Matching_score += dist_mat.trace()
             argsmax = torch.argsort(dist_mat, dim=1)
@@ -276,24 +278,27 @@ class M2TMetrics(Metric):
             metrics[f"gt_R_precision_top_{str(k+1)}"] = top_k_mat[k] / R_count
 
         # NLP metrics
-        scores = self.nlg_evaluator(predictions=self.pred_texts,
-                                    references=self.gt_texts)
+        scores = self.nlg_evaluator(
+            predictions=self.pred_texts, references=self.gt_texts
+        )
         for k in range(1, self.bleu_k + 1):
-            metrics[f"Bleu_{str(k)}"] = torch.tensor(scores[f'bleu_{str(k)}'],
-                                                     device=self.device)
-            
-        metrics["ROUGE_L"] = torch.tensor(scores["rouge"]["rougeL"],
-                                          device=self.device)
-        metrics["CIDEr"] = torch.tensor(scores["cider"]['score'],device=self.device)
+            metrics[f"Bleu_{str(k)}"] = torch.tensor(
+                scores[f"bleu_{str(k)}"], device=self.device
+            )
+
+        metrics["ROUGE_L"] = torch.tensor(scores["rouge"]["rougeL"], device=self.device)
+        metrics["CIDEr"] = torch.tensor(scores["cider"]["score"], device=self.device)
 
         # Bert metrics
-        P, R, F1 = score_bert(self.pred_texts,
-                              self.gt_texts,
-                              lang='en',
-                              rescale_with_baseline=True,
-                              idf=True,
-                              device=self.device,
-                              verbose=False)
+        P, R, F1 = score_bert(
+            self.pred_texts,
+            self.gt_texts,
+            lang="en",
+            rescale_with_baseline=True,
+            idf=True,
+            device=self.device,
+            verbose=False,
+        )
 
         metrics["Bert_F1"] = F1.mean()
 
@@ -305,14 +310,16 @@ class M2TMetrics(Metric):
         return {**metrics}
 
     @torch.no_grad()
-    def update(self,
-               feats_ref: Tensor,
-               pred_texts: List[str],
-               gt_texts: List[str],
-               lengths: List[int],
-               word_embs: Tensor = None,
-               pos_ohot: Tensor = None,
-               text_lengths: Tensor = None):
+    def update(
+        self,
+        feats_ref: Tensor,
+        pred_texts: List[str],
+        gt_texts: List[str],
+        lengths: List[int],
+        word_embs: Tensor = None,
+        pos_ohot: Tensor = None,
+        text_lengths: Tensor = None,
+    ):
 
         self.count += sum(lengths)
         self.count_seq += len(lengths)
@@ -322,9 +329,9 @@ class M2TMetrics(Metric):
         align_idx = np.argsort(m_lens.data.tolist())[::-1].copy()
         feats_ref = feats_ref[align_idx]
         m_lens = m_lens[align_idx]
-        m_lens = torch.div(m_lens,
-                           self.cfg.DATASET.HUMANML3D.UNIT_LEN,
-                           rounding_mode="floor")
+        m_lens = torch.div(
+            m_lens, self.cfg.DATASET.HUMANML3D.UNIT_LEN, rounding_mode="floor"
+        )
         ref_mov = self.t2m_moveencoder(feats_ref[..., :-4]).detach()
         m_lens = m_lens // self.unit_length
         ref_emb = self.t2m_motionencoder(ref_mov, m_lens)
@@ -332,8 +339,7 @@ class M2TMetrics(Metric):
         self.gtmotion_embeddings.append(gtmotion_embeddings)
 
         # text encoder
-        gttext_emb = self.t2m_textencoder(word_embs, pos_ohot,
-                                          text_lengths)[align_idx]
+        gttext_emb = self.t2m_textencoder(word_embs, pos_ohot, text_lengths)[align_idx]
         gttext_embeddings = torch.flatten(gttext_emb, start_dim=1).detach()
         predtext_emb = self._get_text_embeddings(pred_texts)[align_idx]
         predtext_embeddings = torch.flatten(predtext_emb, start_dim=1).detach()

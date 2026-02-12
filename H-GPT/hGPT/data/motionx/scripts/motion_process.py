@@ -31,7 +31,7 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License. We provide a license to use the code, 
+# limitations under the License. We provide a license to use the code,
 # please read the specific details carefully.
 #
 # ------------------------------------------------------------------------------------------------
@@ -54,6 +54,7 @@ from concurrent.futures import ThreadPoolExecutor
 from ..common.quaternion import *
 from ..common.skeleton import Skeleton
 from ..utils.paramUtil import *
+
 
 def findAllFile(base):
     """
@@ -85,7 +86,7 @@ def uniform_skeleton(positions, target_offset):
         numpy.ndarray: New joint positions after scaling and inverse/forward kinematics.
     """
     # Creating a skeleton with a predefined kinematic chain
-    src_skel = Skeleton(n_raw_offsets, kinematic_chain, 'cpu')
+    src_skel = Skeleton(n_raw_offsets, kinematic_chain, "cpu")
 
     # Calculate the global offset of the source skeleton
     src_offset = src_skel.get_offsets_joints(torch.from_numpy(positions[0]))
@@ -93,14 +94,12 @@ def uniform_skeleton(positions, target_offset):
     tgt_offset = target_offset.numpy()
 
     # Calculate Scale Ratio as the ratio of legs
-    src_leg_len = np.abs(src_offset[l_idx1]).max(
-    ) + np.abs(src_offset[l_idx2]).max()
-    tgt_leg_len = np.abs(tgt_offset[l_idx1]).max(
-    ) + np.abs(tgt_offset[l_idx2]).max()
+    src_leg_len = np.abs(src_offset[l_idx1]).max() + np.abs(src_offset[l_idx2]).max()
+    tgt_leg_len = np.abs(tgt_offset[l_idx1]).max() + np.abs(tgt_offset[l_idx2]).max()
 
     # Scale ratio for uniform scaling
     scale_rt = tgt_leg_len / src_leg_len
-    
+
     # Extract the root position of the source skeleton
     src_root_pos = positions[:, 0]
     # Scale the root position based on the calculated ratio
@@ -129,7 +128,7 @@ def process_file(positions, feet_thre):
     """
     # Uniformly scale the skeleton to match a target offset
     positions = uniform_skeleton(positions, tgt_offsets)
-    
+
     # Put the skeleton on the floor by subtracting the minimum height
     floor_height = positions.min(axis=0).min(axis=0)[1]
     positions[:, :, 1] -= floor_height
@@ -144,14 +143,15 @@ def process_file(positions, feet_thre):
     across1 = root_pos_init[r_hip] - root_pos_init[l_hip]
     across2 = root_pos_init[sdr_r] - root_pos_init[sdr_l]
     across = across1 + across2
-    across = across / np.sqrt((across ** 2).sum(axis=-1))[..., np.newaxis]
+    across = across / np.sqrt((across**2).sum(axis=-1))[..., np.newaxis]
 
     # Ensure that all poses initially face Z+
     # forward (3,), rotate around y-axis
     forward_init = np.cross(np.array([[0, 1, 0]]), across, axis=-1)
     # forward (3,)
-    forward_init = forward_init / \
-        np.sqrt((forward_init ** 2).sum(axis=-1))[..., np.newaxis]
+    forward_init = (
+        forward_init / np.sqrt((forward_init**2).sum(axis=-1))[..., np.newaxis]
+    )
 
     # Calculate quaternion for root orientation
     target = np.array([[0, 0, 1]])
@@ -161,7 +161,7 @@ def process_file(positions, feet_thre):
     # Rotate the motion capture data using the calculated quaternion
     positions_b = positions.copy()
     positions = qrot_np(root_quat_init, positions)
-    
+
     # Store the global positions for further analysis
     global_positions = positions.copy()
 
@@ -177,30 +177,27 @@ def process_file(positions, feet_thre):
     """ Get Foot Contacts """
 
     def foot_detect(positions, thres):
-        velfactor, heightfactor = np.array(
-            [thres, thres]), np.array([3.0, 2.0])
+        velfactor, heightfactor = np.array([thres, thres]), np.array([3.0, 2.0])
 
         feet_l_x = (positions[1:, fid_l, 0] - positions[:-1, fid_l, 0]) ** 2
         feet_l_y = (positions[1:, fid_l, 1] - positions[:-1, fid_l, 1]) ** 2
         feet_l_z = (positions[1:, fid_l, 2] - positions[:-1, fid_l, 2]) ** 2
         #     feet_l_h = positions[:-1,fid_l,1]
         #     feet_l = (((feet_l_x + feet_l_y + feet_l_z) < velfactor) & (feet_l_h < heightfactor)).astype(np.float)
-        feet_l = ((feet_l_x + feet_l_y + feet_l_z)
-                  < velfactor).astype(np.float32)
+        feet_l = ((feet_l_x + feet_l_y + feet_l_z) < velfactor).astype(np.float32)
 
         feet_r_x = (positions[1:, fid_r, 0] - positions[:-1, fid_r, 0]) ** 2
         feet_r_y = (positions[1:, fid_r, 1] - positions[:-1, fid_r, 1]) ** 2
         feet_r_z = (positions[1:, fid_r, 2] - positions[:-1, fid_r, 2]) ** 2
         #     feet_r_h = positions[:-1,fid_r,1]
         #     feet_r = (((feet_r_x + feet_r_y + feet_r_z) < velfactor) & (feet_r_h < heightfactor)).astype(np.float)
-        feet_r = (((feet_r_x + feet_r_y + feet_r_z)
-                  < velfactor)).astype(np.float32)
+        feet_r = (((feet_r_x + feet_r_y + feet_r_z) < velfactor)).astype(np.float32)
         return feet_l, feet_r
-    
+
     feet_l, feet_r = foot_detect(positions, feet_thre)
     # feet_l, feet_r = foot_detect(positions, 0.002)
 
-    '''Quaternion and Cartesian representation'''
+    """Quaternion and Cartesian representation"""
     r_rot = None
 
     def get_rifke(positions):
@@ -214,12 +211,13 @@ def process_file(positions, feet_thre):
         Returns:
             numpy.ndarray: Adjusted motion capture data in a local pose representation.
         """
-        '''Local pose'''
+        """Local pose"""
         positions[..., 0] -= positions[:, 0:1, 0]
         positions[..., 2] -= positions[:, 0:1, 2]
-        '''All pose face Z+'''
+        """All pose face Z+"""
         positions = qrot_np(
-            np.repeat(r_rot[:, None], positions.shape[1], axis=1), positions)
+            np.repeat(r_rot[:, None], positions.shape[1], axis=1), positions
+        )
         return positions
 
     def get_quaternion(positions):
@@ -235,22 +233,23 @@ def process_file(positions, feet_thre):
         """
         # Initialize a skeleton object with a specified kinematic chain
         skel = Skeleton(n_raw_offsets, kinematic_chain, "cpu")
-        
+
         # (seq_len, joints_num, 4)
         quat_params = skel.inverse_kinematics_np(
-            positions, face_joint_indx, smooth_forward=False)
+            positions, face_joint_indx, smooth_forward=False
+        )
 
-        '''Fix Quaternion Discontinuity'''
+        """Fix Quaternion Discontinuity"""
         quat_params = qfix(quat_params)
         # (seq_len, 4)
         r_rot = quat_params[:, 0].copy()
         #     print(r_rot[0])
-        '''Root Linear Velocity'''
+        """Root Linear Velocity"""
         # (seq_len - 1, 3)
         velocity = (positions[1:, 0] - positions[:-1, 0]).copy()
         #     print(r_rot.shape, velocity.shape)
         velocity = qrot_np(r_rot[1:], velocity)
-        '''Root Angular Velocity'''
+        """Root Angular Velocity"""
         # (seq_len - 1, 4)
         r_velocity = qmul_np(r_rot[1:], qinv_np(r_rot[:-1]))
         quat_params[1:, 0] = r_velocity
@@ -272,24 +271,25 @@ def process_file(positions, feet_thre):
         skel = Skeleton(n_raw_offsets, kinematic_chain, "cpu")
         # (seq_len, joints_num, 4)
         quat_params = skel.inverse_kinematics_np(
-            positions, face_joint_indx, smooth_forward=True)
+            positions, face_joint_indx, smooth_forward=True
+        )
 
-        '''Quaternion to continuous 6D'''
+        """Quaternion to continuous 6D"""
         cont_6d_params = quaternion_to_cont6d_np(quat_params)
         # (seq_len, 4)
         r_rot = quat_params[:, 0].copy()
-        
-        '''Root Linear Velocity'''
+
+        """Root Linear Velocity"""
         # (seq_len - 1, 3)
         velocity = (positions[1:, 0] - positions[:-1, 0]).copy()
-        
+
         velocity = qrot_np(r_rot[1:], velocity)
-        '''Root Angular Velocity'''
+        """Root Angular Velocity"""
         # (seq_len - 1, 4)
         r_velocity = qmul_np(r_rot[1:], qinv_np(r_rot[:-1]))
         # (seq_len, joints_num, 4)
         return cont_6d_params, r_velocity, velocity, r_rot
-    
+
     # Extract additional features including root height and root data
     cont_6d_params, r_velocity, velocity, r_rot = get_cont6d_params(positions)
     positions = get_rifke(positions)
@@ -302,7 +302,7 @@ def process_file(positions, feet_thre):
     # (seq_len-1, 2) linear velovity on xz plane
     r_velocity = np.arcsin(r_velocity[:, 2:3])
     l_velocity = velocity[:, [0, 2]]
-    root_data = np.concatenate([r_velocity, l_velocity, root_y[:-1]], axis=-1) # 4-dim
+    root_data = np.concatenate([r_velocity, l_velocity, root_y[:-1]], axis=-1)  # 4-dim
 
     # Get Joint Rotation Representation
     # (seq_len, (joints_num-1) *6) quaternion for skeleton joints
@@ -314,8 +314,10 @@ def process_file(positions, feet_thre):
 
     # Get Joint Velocity Representation
     # (seq_len-1, joints_num*3)
-    local_vel = qrot_np(np.repeat(r_rot[:-1, None], global_positions.shape[1], axis=1),
-                        global_positions[1:] - global_positions[:-1])
+    local_vel = qrot_np(
+        np.repeat(r_rot[:-1, None], global_positions.shape[1], axis=1),
+        global_positions[1:] - global_positions[:-1],
+    )
     local_vel = local_vel.reshape(len(local_vel), -1)
 
     # Concatenate all features into a single array
@@ -337,6 +339,7 @@ def process_file(positions, feet_thre):
 # local_velocity (B, seq_len, joint_num*3)
 # foot contact (B, seq_len, 4)
 
+
 def recover_root_rot_pos(data):
     """
     Recover root rotation and position from the given motion capture data.
@@ -350,7 +353,7 @@ def recover_root_rot_pos(data):
     # Extract root rotation velocity from the input data
     rot_vel = data[..., 0]
     r_rot_ang = torch.zeros_like(rot_vel).to(data.device)
-    '''Get Y-axis rotation from rotation velocity'''
+    """Get Y-axis rotation from rotation velocity"""
     r_rot_ang[..., 1:] = rot_vel[..., :-1]
     r_rot_ang = torch.cumsum(r_rot_ang, dim=-1)
 
@@ -361,7 +364,7 @@ def recover_root_rot_pos(data):
     r_pos = torch.zeros(data.shape[:-1] + (3,)).to(data.device)
     # TODO: check this dtype
     r_pos[..., 1:, [0, 2]] = data[..., :-1, 1:3].to(r_pos.dtype)
-    '''Add Y-axis rotation to root position'''
+    """Add Y-axis rotation to root position"""
     r_pos = qrot(qinv(r_rot_quat), r_pos)
 
     r_pos = torch.cumsum(r_pos, dim=-2)
@@ -399,7 +402,7 @@ def recover_from_rot(data, joints_num, skeleton):
 
     # Perform forward kinematics to obtain joint positions
     positions = skeleton.forward_kinematics_cont6d(cont6d_params, r_pos)
-    
+
     return positions
 
 
@@ -417,42 +420,52 @@ def recover_from_ric(data, joints_num):
     # Recover root rotation quaternion and position from the input data
     r_rot_quat, r_pos = recover_root_rot_pos(data)
     # TODO: check this dtype
-    positions = data[..., 4:(joints_num - 1) * 3 + 4].to(r_rot_quat.dtype)
+    positions = data[..., 4 : (joints_num - 1) * 3 + 4].to(r_rot_quat.dtype)
     positions = positions.view(positions.shape[:-1] + (-1, 3))
 
-    '''Add Y-axis rotation to local joints'''
-    positions = qrot(qinv(r_rot_quat[..., None, :]).expand(
-        positions.shape[:-1] + (4,)), positions)
+    """Add Y-axis rotation to local joints"""
+    positions = qrot(
+        qinv(r_rot_quat[..., None, :]).expand(positions.shape[:-1] + (4,)), positions
+    )
 
-    '''Add root XZ to joints'''
+    """Add root XZ to joints"""
     positions[..., 0] += r_pos[..., 0:1]
     positions[..., 2] += r_pos[..., 2:3]
 
-    '''Concate root and joints'''
-    positions = torch.cat([r_pos.unsqueeze(-2), positions], dim=-2) # [batch_size, seq_len, joint_num, 3]
+    """Concate root and joints"""
+    positions = torch.cat(
+        [r_pos.unsqueeze(-2), positions], dim=-2
+    )  # [batch_size, seq_len, joint_num, 3]
     return positions
 
 
-def process_file_multithread(idx, source_file, body_joints_id, hand_joints_id, joints_num):
+def process_file_multithread(
+    idx, source_file, body_joints_id, hand_joints_id, joints_num
+):
     if idx % 100 == 0:
-        print (f"processing file {idx}: {source_file} ...")
-    source_data = np.load(source_file)[:, body_joints_id+hand_joints_id, :]
-    print ("shape: ", source_data.shape)
-    
-    data, ground_positions, positions, l_velocity = process_file(
-        source_data, 0.002)
-    rec_ric_data = recover_from_ric(torch.from_numpy(
-        data).unsqueeze(0).float(), joints_num)
+        print(f"processing file {idx}: {source_file} ...")
+    source_data = np.load(source_file)[:, body_joints_id + hand_joints_id, :]
+    print("shape: ", source_data.shape)
 
-    os.makedirs(os.path.split(source_file.replace(
-        'joints_322', 'joints_623'))[0], exist_ok=True)
-    os.makedirs(os.path.split(source_file.replace(
-        'joints_322', 'vectors_623'))[0], exist_ok=True)
-    np.save(source_file.replace('joints_322', 'joints_623'),
-            rec_ric_data.squeeze().numpy())
-    np.save(source_file.replace('joints_322', 'vectors_623'), data)
+    data, ground_positions, positions, l_velocity = process_file(source_data, 0.002)
+    rec_ric_data = recover_from_ric(
+        torch.from_numpy(data).unsqueeze(0).float(), joints_num
+    )
+
+    os.makedirs(
+        os.path.split(source_file.replace("joints_322", "joints_623"))[0], exist_ok=True
+    )
+    os.makedirs(
+        os.path.split(source_file.replace("joints_322", "vectors_623"))[0],
+        exist_ok=True,
+    )
+    np.save(
+        source_file.replace("joints_322", "joints_623"), rec_ric_data.squeeze().numpy()
+    )
+    np.save(source_file.replace("joints_322", "vectors_623"), data)
     frame_num = data.shape[0]
     return frame_num
+
 
 def process_file_multiprocess(*inputs):
     max_workers = 8
@@ -460,13 +473,13 @@ def process_file_multiprocess(*inputs):
         frame_num = executor.map(lambda p: process_file_multithread(*p), inputs)
 
 
-'''
+"""
 For HumanML3D Dataset
-'''
+"""
 
 if __name__ == "__main__":
     """
-    This script processes motion capture data, performs a recovery operation on the joint positions, 
+    This script processes motion capture data, performs a recovery operation on the joint positions,
     and saves the recovered joint positions along with the original joint vectors. The main steps include:
 
     Note: Exception handling is implemented to identify and print any issues encountered during processing.
@@ -475,8 +488,8 @@ if __name__ == "__main__":
     - Recovered joint positions are saved in the 'new_joints' directory.
     - Original joint vectors are saved in the 'new_joint_vecs' directory.
     """
-    base_path = '/inspire/hdd/ws-f4d69b29-e0a5-44e6-bd92-acf4de9990f0/public-project/qiuxipeng-24028/workspace/pli/HumanoidGPT/datasets/motionx/data/'
-    
+    base_path = "/inspire/hdd/ws-f4d69b29-e0a5-44e6-bd92-acf4de9990f0/public-project/qiuxipeng-24028/workspace/pli/HumanoidGPT/datasets/motionx/data/"
+
     example_id = "000021"
     # Lower legs
     l_idx1, l_idx2 = 5, 8
@@ -487,19 +500,41 @@ if __name__ == "__main__":
     # body,hand joint idx
     # 2*3*5=30, left first, then right
     hand_joints_id = [i for i in range(25, 55)]
-    body_joints_id = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
-                      12, 13, 14, 15, 16, 17, 18, 19, 20, 21]  # 22 joints
+    body_joints_id = [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+    ]  # 22 joints
     # l_hip, r_hip
     r_hip, l_hip = 2, 1
     joints_num = 52
     # ds_num = 8
 
     # change your motion_data joint
-    data_dir = base_path + 'motion_data/joints_322'
+    data_dir = base_path + "motion_data/joints_322"
     # Recovered joint positions
-    save_dir1 = base_path + 'motion_data/joints_623/'
+    save_dir1 = base_path + "motion_data/joints_623/"
     # Original joint vectors
-    save_dir2 = base_path + 'motion_data/vectors_623/'
+    save_dir2 = base_path + "motion_data/vectors_623/"
 
     os.makedirs(save_dir1, exist_ok=True)
     os.makedirs(save_dir2, exist_ok=True)
@@ -509,12 +544,12 @@ if __name__ == "__main__":
 
     # Get offsets of target skeleton
     # we random choose one
-    example_data = np.load(base_path + 'motion_data/joints_322/humanml/000021.npy')
+    example_data = np.load(base_path + "motion_data/joints_322/humanml/000021.npy")
     example_data = example_data[:, body_joints_id + hand_joints_id, :]
     example_data = example_data.reshape(len(example_data), -1, 3)
     example_data = torch.from_numpy(example_data)
 
-    tgt_skel = Skeleton(n_raw_offsets, kinematic_chain, 'cpu')
+    tgt_skel = Skeleton(n_raw_offsets, kinematic_chain, "cpu")
 
     # (joints_num, 3)
     # tgt_offsets is the 000021 skeleton bone lengths with the predefined offset directions. global postion offsets
@@ -523,26 +558,29 @@ if __name__ == "__main__":
 
     source_list = findAllFile(data_dir)
     frame_num = 0
-    inputs = [(idx, source_file, body_joints_id, hand_joints_id, joints_num) for idx, source_file \
-        in enumerate(source_list) if not os.path.exists(source_file.replace('joints_322', 'vectors_623'))]
-    print ("inputs :", len(inputs))
-    
+    inputs = [
+        (idx, source_file, body_joints_id, hand_joints_id, joints_num)
+        for idx, source_file in enumerate(source_list)
+        if not os.path.exists(source_file.replace("joints_322", "vectors_623"))
+    ]
+    print("inputs :", len(inputs))
+
     step = 1
     tmp_source_list = []
     for i in range(0, len(inputs), step):
-        tmp_source_list.append(inputs[i:i+step])
-    print ("input group: ", len(tmp_source_list))
+        tmp_source_list.append(inputs[i : i + step])
+    print("input group: ", len(tmp_source_list))
     max_workers = 16
     with multiprocessing.Pool(processes=max_workers) as pool:
         pool_outputs = pool.starmap(process_file_multiprocess, tmp_source_list)
-    
+
     # for item in inputs:
     #     print (item)
     #     try:
     #         process_file_multithread(*item)
     #     except:
     #         print ("skip.")
-        
+
     # print('Total clips: %d, Frames: %d, Duration: %fm' %
     #       (len(source_list), frame_num, frame_num / 20 / 60))
-    print ("Good Job!")
+    print("Good Job!")

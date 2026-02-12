@@ -31,7 +31,7 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License. We provide a license to use the code, 
+# limitations under the License. We provide a license to use the code,
 # please read the specific details carefully.
 #
 # ------------------------------------------------------------------------------------------------
@@ -55,7 +55,8 @@ from torch.utils.data import DataLoader
 from ..smplx2joints import get_smplx_layer, process_smplx_322_data
 from ..dataset import MotionDatasetV2, mld_collate
 
-os.environ['PYOPENGL_PLATFORM'] = 'egl'
+os.environ["PYOPENGL_PLATFORM"] = "egl"
+
 
 def findAllFile(base):
     """
@@ -78,6 +79,7 @@ def findAllFile(base):
 # # Get SMPLX layer and model using a custom function get_smplx_layer
 # smplx_layer, smplx_model = get_smplx_layer(comp_device)
 
+
 def amass_to_pose(src_motion, src_path, length, comp_device):
     """
     Convert AMASS SMPL-X motion data to pose representation and save joint positions.
@@ -92,23 +94,24 @@ def amass_to_pose(src_motion, src_path, length, comp_device):
     """
     # Get SMPLX layer and model using a custom function get_smplx_layer
     smplx_layer, smplx_model = get_smplx_layer(comp_device)
-    
+
     # frame id of the mocap sequence
     fId = 0
     pose_seq = []
 
     # Process SMPLX 322-dimensional data
     vert, joints, pose, faces = process_smplx_322_data(
-        src_motion, smplx_layer, smplx_model, device=comp_device)
+        src_motion, smplx_layer, smplx_model, device=comp_device
+    )
 
     # Add global joint offsets to the processed joints
     joints += src_motion[..., 309:312].unsqueeze(2)
 
     # Iterate over frames to extract joint positions and save them to individual files
     for i in range(joints.shape[0]):
-        joint = joints[i][:int(length[i])].detach().cpu().numpy()
+        joint = joints[i][: int(length[i])].detach().cpu().numpy()
         # change the save folder
-        save_path = src_path[i].replace('/smplx_322/', '/joints_322/')
+        save_path = src_path[i].replace("/smplx_322/", "/joints_322/")
         os.makedirs(os.path.split(save_path)[0], exist_ok=True)
         np.save(save_path, joint)
 
@@ -116,31 +119,48 @@ def amass_to_pose(src_motion, src_path, length, comp_device):
 # about 3 hours
 if __name__ == "__main__":
     # change your path here with Motion-X SMPLX format with 322 dims
-    print ("data loader!")
-    root_path = './HumanoidGPT/datasets/motionx/data/motion_data/smplx_322'
-    train_dataset = MotionDatasetV2(root_path=root_path, debug=False, load_cache=False, 
-                                    save_cache=False, cache_path='motion_cache.pkl')
+    print("data loader!")
+    root_path = "./HumanoidGPT/datasets/motionx/data/motion_data/smplx_322"
+    train_dataset = MotionDatasetV2(
+        root_path=root_path,
+        debug=False,
+        load_cache=False,
+        save_cache=False,
+        cache_path="motion_cache.pkl",
+    )
     # batch size 128 for 466
     # batch size 2 for larger
-    train_loader = DataLoader(train_dataset, batch_size=1, drop_last=False,
-                            num_workers=64, shuffle=False, collate_fn=mld_collate)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=1,
+        drop_last=False,
+        num_workers=64,
+        shuffle=False,
+        collate_fn=mld_collate,
+    )
 
-    print ("Iterate over batches in the training loader using tqdm for progress tracking")
+    print(
+        "Iterate over batches in the training loader using tqdm for progress tracking"
+    )
     # Iterate over batches in the training loader using tqdm for progress tracking
     # TODO: parallel
     gpu_num = 4
-    
+
     for idx, batch_data in enumerate(tqdm(train_loader)):
         # Move motion data to the computation device (e.g., GPU)
         device_id = idx % gpu_num
-        comp_device = torch.device(f"cuda:{device_id}" if torch.cuda.is_available() else "cpu")
-        
-        motion = batch_data['motion'].to(comp_device)
-        name = batch_data['name']
-        length = batch_data['length']
+        comp_device = torch.device(
+            f"cuda:{device_id}" if torch.cuda.is_available() else "cpu"
+        )
+
+        motion = batch_data["motion"].to(comp_device)
+        name = batch_data["name"]
+        length = batch_data["length"]
         # print ("length: ", length)
-        
-        if os.path.exists(name[motion.shape[0]-1].replace('/smplx_322/', '/joints_322/')):
+
+        if os.path.exists(
+            name[motion.shape[0] - 1].replace("/smplx_322/", "/joints_322/")
+        ):
             # print ("batch exist, skip.")
             continue
 

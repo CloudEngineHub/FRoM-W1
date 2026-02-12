@@ -14,7 +14,8 @@ import spacy
 from rich.progress import track
 from torch.utils.data import Dataset
 
-SHOW_INFO=True
+SHOW_INFO = True
+
 
 class Text2MotionDatasetTrain(Dataset):
     def __init__(
@@ -34,33 +35,34 @@ class Text2MotionDatasetTrain(Dataset):
         **kwargs,
     ):
         # init
-        cot_path = cot_path if cot_path != '' else None
-        split_file = pjoin(split_path, f'{split}.txt')
-        
+        cot_path = cot_path if cot_path != "" else None
+        split_file = pjoin(split_path, f"{split}.txt")
+
         self.mean = mean
-        self.std = std        
+        self.std = std
         self.unit_length = unit_length
         self.fps = fps
-            
+
         # load id list
         self.id_list = []
         with cs.open(split_file, "r") as f:
             for line in f.readlines():
                 self.id_list.append(line.strip())
-            print (f"Id list num: {len(self.id_list)}")
-                
+            print(f"Id list num: {len(self.id_list)}")
+
         if debug:
             enumerator = enumerate(self.id_list)
             maxdata = 100
-            subset = '_tiny'
+            subset = "_tiny"
         else:
             enumerator = enumerate(
                 track(
                     self.id_list,
                     f"Loading Dataset {split_file}",
-                ))
+                )
+            )
             maxdata = 1e10
-            subset = ''
+            subset = ""
 
         new_name_list = []
         data_dict = {}
@@ -68,44 +70,46 @@ class Text2MotionDatasetTrain(Dataset):
         for i, name in enumerator:
             if len(new_name_list) > maxdata:
                 break
-            
+
             # load motion token
             try:
-                m_token_list = np.load(pjoin(motion_token_path, f'{name}.npy'), allow_pickle=True)
-                
+                m_token_list = np.load(
+                    pjoin(motion_token_path, f"{name}.npy"), allow_pickle=True
+                )
+
             except Exception as e:
                 if SHOW_INFO:
-                    print (f"Loading data error: {name}. Skipped.")
+                    print(f"Loading data error: {name}. Skipped.")
                 continue
 
             if np.isnan(m_token_list).any() or m_token_list.shape[0] == 0:
                 if SHOW_INFO:
-                    print (f"found nan or none: {name}. skiped.")
+                    print(f"found nan or none: {name}. skiped.")
                 continue
 
             # load cot
             cot_list = []
             if cot_path != None:
-                cot_file = pjoin(cot_path, name + '.txt')
+                cot_file = pjoin(cot_path, name + ".txt")
                 if not os.path.exists(cot_file):
                     if SHOW_INFO:
-                        print (f"No such a cot file: {name}. skipped.")
+                        print(f"No such a cot file: {name}. skipped.")
                     continue
                 else:
-                    with open(cot_file, 'r') as f:
+                    with open(cot_file, "r") as f:
                         cot_list = f.readlines()
 
             # load text
             text_data = []
             flag = False
-            with cs.open(pjoin(text_path, name + '.txt')) as f:
+            with cs.open(pjoin(text_path, name + ".txt")) as f:
                 lines = f.readlines()
                 for line_idx, line in enumerate(lines):
                     text_dict = {}
-                    line_split = line.split('#')
+                    line_split = line.split("#")
                     try:
                         caption = line_split[0]
-                        t_tokens = line_split[1].split(' ')
+                        t_tokens = line_split[1].split(" ")
                         f_tag = float(line_split[2])
                         to_tag = float(line_split[3])
                         f_tag = 0.0 if np.isnan(f_tag) else f_tag
@@ -113,87 +117,88 @@ class Text2MotionDatasetTrain(Dataset):
                         assert f_tag <= to_tag, "f_tag > t_tag"
                     except Exception as e:
                         if SHOW_INFO:
-                            print(f"Error load text: {name}. Error: {str(e)}. Line data: {line_split}. skipped.")
+                            print(
+                                f"Error load text: {name}. Error: {str(e)}. Line data: {line_split}. skipped."
+                            )
                         continue
 
-                    text_dict['caption'] = caption
-                    text_dict['tokens'] = t_tokens
-                    
+                    text_dict["caption"] = caption
+                    text_dict["tokens"] = t_tokens
+
                     # TODO: fix len(cot_list) != len(lines)
                     if cot_path == None:
-                        text_dict['cot'] = ''
+                        text_dict["cot"] = ""
                     elif len(cot_list) != len(lines):
                         if SHOW_INFO:
-                            print (f"cot != text lines: {name}. {len(cot_list)} vs {len(lines)}")
+                            print(
+                                f"cot != text lines: {name}. {len(cot_list)} vs {len(lines)}"
+                            )
                         continue
                     else:
-                        text_dict['cot'] = cot_list[line_idx]
-                    
+                        text_dict["cot"] = cot_list[line_idx]
+
                     if f_tag == 0.0 and to_tag == 0.0:
                         flag = True
                         text_data.append(text_dict)
                     else:
                         m_token_list_new = [
-                            tokens[int(f_tag * fps / unit_length
-                                        ):int(to_tag * fps /
-                                                unit_length)]
+                            tokens[
+                                int(f_tag * fps / unit_length) : int(
+                                    to_tag * fps / unit_length
+                                )
+                            ]
                             for tokens in m_token_list
-                            if int(f_tag * fps / unit_length) <
-                            int(to_tag * fps / unit_length)
+                            if int(f_tag * fps / unit_length)
+                            < int(to_tag * fps / unit_length)
                         ]
                         if len(m_token_list_new) == 0:
                             if SHOW_INFO:
-                                print (f"new motion token list is []: {name}. skipped.")
+                                print(f"new motion token list is []: {name}. skipped.")
                             continue
 
-                        new_name = '%s_%f_%f' % (name, f_tag,
-                                                    to_tag)
+                        new_name = "%s_%f_%f" % (name, f_tag, to_tag)
                         data_dict[new_name] = {
-                            'm_token_list': m_token_list_new,
-                            'text': [text_dict]
+                            "m_token_list": m_token_list_new,
+                            "text": [text_dict],
                         }
                         new_name_list.append(new_name)
 
             if flag:
-                data_dict[name] = {
-                    'm_token_list': m_token_list,
-                    'text': text_data
-                }
+                data_dict[name] = {"m_token_list": m_token_list, "text": text_data}
                 new_name_list.append(name)
-        
+
         self.data_dict = data_dict
         self.name_list = new_name_list
         print(f"Successfully loaded {len(self.name_list)} samples")
         # exit(0)
-        
+
         # texts
         self.std_text = std_text
-        self.nlp = spacy.load('en_core_web_sm')
+        self.nlp = spacy.load("en_core_web_sm")
 
         # tasks
-        self.instructions = json.load(open(task_path, 'r'))
+        self.instructions = json.load(open(task_path, "r"))
         self.tasks = []
         for task in self.instructions.keys():
             for subtask in self.instructions[task].keys():
                 self.tasks.append(self.instructions[task][subtask])
 
-        
     def __len__(self):
         return len(self.name_list) * len(self.tasks)
 
     def __getitem__(self, idx):
         data_idx = idx % len(self.name_list)
         task_idx = random.randint(0, len(self.tasks) - 1)
-        
+
         name = self.name_list[data_idx]
         data = self.data_dict[name]
-        m_token_list, text_list = data['m_token_list'], data['text']
-        
+        m_token_list, text_list = data["m_token_list"], data["text"]
+
         m_tokens = random.choice(m_token_list)
         text_data = random.choice(text_list)
-        caption = text_data['caption']
+        caption = text_data["caption"]
         cot = text_data["cot"]
-        
+
         if self.std_text:
             doc = self.nlp(caption)
             word_list = []
@@ -202,16 +207,15 @@ class Text2MotionDatasetTrain(Dataset):
                 word = token.text
                 if not word.isalpha():
                     continue
-                if (token.pos_ == 'NOUN'
-                        or token.pos_ == 'VERB') and (word != 'left'):
+                if (token.pos_ == "NOUN" or token.pos_ == "VERB") and (word != "left"):
                     word_list.append(token.lemma_)
                 else:
                     word_list.append(word)
                 pos_list.append(token.pos_)
-            caption = ' '.join(word_list)
-        
+            caption = " ".join(word_list)
+
         all_captions = [
-            ' '.join([token.split('/')[0] for token in text_dic['tokens']])
+            " ".join([token.split("/")[0] for token in text_dic["tokens"]])
             for text_dic in text_list
         ]
 
@@ -225,9 +229,23 @@ class Text2MotionDatasetTrain(Dataset):
 
         m_tokens_len = m_tokens.shape[0]
         task = self.tasks[task_idx]
-        
+
         # name, motion, m_length, m_tokens, m_tokens_len, caption, sent_len, "_".join(tokens), word_embeddings, pos_one_hots, all_captions, cot, task
-        return name, None, None, m_tokens, m_tokens_len, caption, None, None, None, None, all_captions, cot, task
+        return (
+            name,
+            None,
+            None,
+            m_tokens,
+            m_tokens_len,
+            caption,
+            None,
+            None,
+            None,
+            None,
+            all_captions,
+            cot,
+            task,
+        )
 
 
 class Text2MotionDatasetTrainDist(Dataset):
@@ -249,44 +267,46 @@ class Text2MotionDatasetTrainDist(Dataset):
         **kwargs,
     ):
         # init
-        cot_path = cot_path if cot_path != '' else None
-        split_file = pjoin(split_path, f'{split}.txt')
-        
+        cot_path = cot_path if cot_path != "" else None
+        split_file = pjoin(split_path, f"{split}.txt")
+
         self.mean = mean
-        self.std = std        
+        self.std = std
         self.unit_length = unit_length
         self.fps = fps
         self.num_workers = num_workers
-            
+
         # load id list
         self.id_list = []
         with cs.open(split_file, "r") as f:
             for line in f.readlines():
                 self.id_list.append(line.strip())
         print(f"Id list num: {len(self.id_list)}")
-                
+
         if debug:
             maxdata = 100
-            subset = '_tiny'
+            subset = "_tiny"
             id_sublist = self.id_list[:maxdata]
         else:
             maxdata = 1e10
-            subset = ''
+            subset = ""
             id_sublist = self.id_list
 
         # 使用多线程加载数据
         self.data_dict = {}
         self.name_list = []
-        
+
         print(f"Loading dataset with {self.num_workers} workers...")
-        self._load_data_parallel(id_sublist, motion_token_path, text_path, cot_path, maxdata)
+        self._load_data_parallel(
+            id_sublist, motion_token_path, text_path, cot_path, maxdata
+        )
 
         # texts
         self.std_text = std_text
-        self.nlp = spacy.load('en_core_web_sm')
+        self.nlp = spacy.load("en_core_web_sm")
 
         # tasks
-        self.instructions = json.load(open(task_path, 'r'))
+        self.instructions = json.load(open(task_path, "r"))
         self.tasks = []
         for task in self.instructions.keys():
             for subtask in self.instructions[task].keys():
@@ -296,7 +316,9 @@ class Text2MotionDatasetTrainDist(Dataset):
         """加载单个数据样本"""
         try:
             # load motion token
-            m_token_list = np.load(pjoin(motion_token_path, f'{name}.npy'), allow_pickle=True)
+            m_token_list = np.load(
+                pjoin(motion_token_path, f"{name}.npy"), allow_pickle=True
+            )
         except Exception as e:
             if SHOW_INFO:
                 print(f"Loading data error: {name}. Skipped. Error: {e}")
@@ -310,33 +332,33 @@ class Text2MotionDatasetTrainDist(Dataset):
         # load cot
         cot_list = []
         if cot_path is not None:
-            cot_file = pjoin(cot_path, name + '.txt')
+            cot_file = pjoin(cot_path, name + ".txt")
             if not os.path.exists(cot_file):
                 if SHOW_INFO:
                     print(f"No such a cot file: {name}. skipped.")
                 return None, None
             else:
-                with open(cot_file, 'r') as f:
+                with open(cot_file, "r") as f:
                     cot_list = f.readlines()
 
         # load text
         text_data = []
         flag = False
-        text_file = pjoin(text_path, name + '.txt')
+        text_file = pjoin(text_path, name + ".txt")
         if not os.path.exists(text_file):
             if SHOW_INFO:
                 print(f"No such a text file: {name}. skipped.")
             return None, None
-            
+
         try:
             with cs.open(text_file) as f:
                 lines = f.readlines()
                 for line_idx, line in enumerate(lines):
                     text_dict = {}
-                    line_split = line.split('#')
+                    line_split = line.split("#")
                     try:
                         caption = line_split[0]
-                        t_tokens = line_split[1].split(' ')
+                        t_tokens = line_split[1].split(" ")
                         f_tag = float(line_split[2])
                         to_tag = float(line_split[3])
                         f_tag = 0.0 if np.isnan(f_tag) else f_tag
@@ -347,63 +369,66 @@ class Text2MotionDatasetTrainDist(Dataset):
                             print(f"Error load text: {name}. skipped.")
                         continue
 
-                    text_dict['caption'] = caption
-                    text_dict['tokens'] = t_tokens
-                    
+                    text_dict["caption"] = caption
+                    text_dict["tokens"] = t_tokens
+
                     # TODO: fix len(cot_list) != len(lines)
                     if cot_path is None:
-                        text_dict['cot'] = ''
+                        text_dict["cot"] = ""
                     elif len(cot_list) != len(lines):
                         if SHOW_INFO:
-                            print(f"cot != text lines: {name}. {len(cot_list)} vs {len(lines)}")
+                            print(
+                                f"cot != text lines: {name}. {len(cot_list)} vs {len(lines)}"
+                            )
                         continue
                     else:
-                        text_dict['cot'] = cot_list[line_idx]
-                    
+                        text_dict["cot"] = cot_list[line_idx]
+
                     if f_tag == 0.0 and to_tag == 0.0:
                         flag = True
                         text_data.append(text_dict)
                     else:
                         m_token_list_new = [
-                            tokens[int(f_tag * self.fps / self.unit_length
-                                        ):int(to_tag * self.fps /
-                                                self.unit_length)]
+                            tokens[
+                                int(f_tag * self.fps / self.unit_length) : int(
+                                    to_tag * self.fps / self.unit_length
+                                )
+                            ]
                             for tokens in m_token_list
-                            if int(f_tag * self.fps / self.unit_length) <
-                            int(to_tag * self.fps / self.unit_length)
+                            if int(f_tag * self.fps / self.unit_length)
+                            < int(to_tag * self.fps / self.unit_length)
                         ]
                         if len(m_token_list_new) == 0:
                             if SHOW_INFO:
                                 print(f"new motion token list is []: {name}. skipped.")
                             continue
 
-                        new_name = '%s_%f_%f' % (name, f_tag, to_tag)
+                        new_name = "%s_%f_%f" % (name, f_tag, to_tag)
                         data_item = {
-                            'm_token_list': m_token_list_new,
-                            'text': [text_dict]
+                            "m_token_list": m_token_list_new,
+                            "text": [text_dict],
                         }
                         return new_name, data_item
 
             if flag:
-                data_item = {
-                    'm_token_list': m_token_list,
-                    'text': text_data
-                }
+                data_item = {"m_token_list": m_token_list, "text": text_data}
                 return name, data_item
-                
+
         except Exception as e:
             if SHOW_INFO:
                 print(f"Error processing text for {name}: {e}")
             return None, None
-            
+
         return None, None
 
-    def _load_data_parallel(self, id_list, motion_token_path, text_path, cot_path, maxdata):
+    def _load_data_parallel(
+        self, id_list, motion_token_path, text_path, cot_path, maxdata
+    ):
         """使用多线程并行加载数据"""
         data_dict = {}
         name_list = []
         lock = threading.Lock()
-        
+
         def process_success(result):
             name, data_item = result
             if name is not None and data_item is not None:
@@ -418,10 +443,12 @@ class Text2MotionDatasetTrainDist(Dataset):
         with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
             # 提交所有任务
             future_to_name = {
-                executor.submit(self._load_single_data, name, motion_token_path, text_path, cot_path): name 
+                executor.submit(
+                    self._load_single_data, name, motion_token_path, text_path, cot_path
+                ): name
                 for name in id_list
             }
-            
+
             # 处理完成的任务
             completed = 0
             for future in as_completed(future_to_name):
@@ -432,11 +459,13 @@ class Text2MotionDatasetTrainDist(Dataset):
                         break  # 达到最大数据量，停止处理
                     completed += 1
                     if completed % 100 == 0:
-                        print(f"Processed {completed}/{len(id_list)} samples, loaded {len(name_list)} valid samples")
+                        print(
+                            f"Processed {completed}/{len(id_list)} samples, loaded {len(name_list)} valid samples"
+                        )
                 except Exception as e:
                     if SHOW_INFO:
                         print(f"Error processing {name}: {e}")
-        
+
         self.data_dict = data_dict
         self.name_list = name_list
         print(f"Successfully loaded {len(self.name_list)} samples")
@@ -447,16 +476,16 @@ class Text2MotionDatasetTrainDist(Dataset):
     def __getitem__(self, idx):
         data_idx = idx % len(self.name_list)
         task_idx = random.randint(0, len(self.tasks) - 1)
-        
+
         name = self.name_list[data_idx]
         data = self.data_dict[name]
-        m_token_list, text_list = data['m_token_list'], data['text']
-        
+        m_token_list, text_list = data["m_token_list"], data["text"]
+
         m_tokens = random.choice(m_token_list)
         text_data = random.choice(text_list)
-        caption = text_data['caption']
+        caption = text_data["caption"]
         cot = text_data["cot"]
-        
+
         if self.std_text:
             doc = self.nlp(caption)
             word_list = []
@@ -465,16 +494,15 @@ class Text2MotionDatasetTrainDist(Dataset):
                 word = token.text
                 if not word.isalpha():
                     continue
-                if (token.pos_ == 'NOUN'
-                        or token.pos_ == 'VERB') and (word != 'left'):
+                if (token.pos_ == "NOUN" or token.pos_ == "VERB") and (word != "left"):
                     word_list.append(token.lemma_)
                 else:
                     word_list.append(word)
                 pos_list.append(token.pos_)
-            caption = ' '.join(word_list)
-        
+            caption = " ".join(word_list)
+
         all_captions = [
-            ' '.join([token.split('/')[0] for token in text_dic['tokens']])
+            " ".join([token.split("/")[0] for token in text_dic["tokens"]])
             for text_dic in text_list
         ]
 
@@ -488,28 +516,43 @@ class Text2MotionDatasetTrainDist(Dataset):
 
         m_tokens_len = m_tokens.shape[0]
         task = self.tasks[task_idx]
-        
+
         # name, motion, m_length, m_tokens, m_tokens_len, caption, sent_len, "_".join(tokens), word_embeddings, pos_one_hots, all_captions, cot, task
-        return name, None, None, m_tokens, m_tokens_len, caption, None, None, None, None, all_captions, cot, task
+        return (
+            name,
+            None,
+            None,
+            m_tokens,
+            m_tokens_len,
+            caption,
+            None,
+            None,
+            None,
+            None,
+            all_captions,
+            cot,
+            task,
+        )
 
 
 def unit_test():
     test_dataset = Text2MotionDatasetTrain(
-        motion_token_path = 'datasets/motionx/data/TOKENS',
-        text_path = 'datasets/motionx/data/texts/semantic_labels',
-        cot_path = 'datasets/motionx/data/texts/cot/v3',
-        split_path = 'datasets/motionx/data/split',
-        split = 'test',
-        mean = 0.0,
-        std = 1.0,
-        unit_length = 4,
-        fps = 30,
-        task_path = './datasets/motionx/data/instructions/template_pretrain_orig.json',    
-        std_text = True,
+        motion_token_path="datasets/motionx/data/TOKENS",
+        text_path="datasets/motionx/data/texts/semantic_labels",
+        cot_path="datasets/motionx/data/texts/cot/v3",
+        split_path="datasets/motionx/data/split",
+        split="test",
+        mean=0.0,
+        std=1.0,
+        unit_length=4,
+        fps=30,
+        task_path="./datasets/motionx/data/instructions/template_pretrain_orig.json",
+        std_text=True,
         debug=True,
     )
-    print (len(test_dataset))
-    print (test_dataset[10])
-    
+    print(len(test_dataset))
+    print(test_dataset[10])
+
+
 if __name__ == "__main__":
     unit_test()

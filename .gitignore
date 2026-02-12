@@ -67,3 +67,8 @@ Thumbs.db
 # Project specific
 *.log
 .env
+
+datasets/*
+deps/*
+experiments/
+results/

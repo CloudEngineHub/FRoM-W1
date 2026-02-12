@@ -31,7 +31,7 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License. We provide a license to use the code, 
+# limitations under the License. We provide a license to use the code,
 # please read the specific details carefully.
 #
 # ------------------------------------------------------------------------------------------------
@@ -43,7 +43,7 @@
 
 import os
 from common.quaternion import *
-import torch 
+import torch
 import matplotlib.pyplot as plt
 import numpy as np
 import io
@@ -53,19 +53,22 @@ import mpl_toolkits.mplot3d.axes3d as p3
 from textwrap import wrap
 import imageio
 
+
 def recover_from_ric(data, joints_num):
     r_rot_quat, r_pos = recover_root_rot_pos(data)
-    positions = data[..., 4:(joints_num - 1) * 3 + 4]
+    positions = data[..., 4 : (joints_num - 1) * 3 + 4]
     positions = positions.view(positions.shape[:-1] + (-1, 3))
 
-    '''Add Y-axis rotation to local joints'''
-    positions = qrot(qinv(r_rot_quat[..., None, :]).expand(positions.shape[:-1] + (4,)), positions)
-    
-    '''Add root XZ to joints'''
+    """Add Y-axis rotation to local joints"""
+    positions = qrot(
+        qinv(r_rot_quat[..., None, :]).expand(positions.shape[:-1] + (4,)), positions
+    )
+
+    """Add root XZ to joints"""
     positions[..., 0] += r_pos[..., 0:1]
     positions[..., 2] += r_pos[..., 2:3]
 
-    '''Concate root and joints'''
+    """Concate root and joints"""
     positions = torch.cat([r_pos.unsqueeze(-2), positions], dim=-2)
     return positions
 
@@ -81,7 +84,7 @@ def recover_from_ric(data, joints_num):
 def recover_root_rot_pos(data):
     rot_vel = data[..., 0]
     r_rot_ang = torch.zeros_like(rot_vel).to(data.device)
-    '''Get Y-axis rotation from rotation velocity'''
+    """Get Y-axis rotation from rotation velocity"""
     r_rot_ang[..., 1:] = rot_vel[..., :-1]
     r_rot_ang = torch.cumsum(r_rot_ang, dim=-1)
 
@@ -91,7 +94,7 @@ def recover_root_rot_pos(data):
 
     r_pos = torch.zeros(data.shape[:-1] + (3,)).to(data.device)
     r_pos[..., 1:, [0, 2]] = data[..., :-1, 1:3]
-    '''Add Y-axis rotation to root position'''
+    """Add Y-axis rotation to root position"""
     r_pos = qrot(qinv(r_rot_quat), r_pos)
 
     r_pos = torch.cumsum(r_pos, dim=-2)
@@ -100,19 +103,35 @@ def recover_root_rot_pos(data):
     return r_rot_quat, r_pos
 
 
-def plot_3d_motion_smplh(joints, out_name, title, kinematic_chain, figsize=(10, 10), fps=120, radius=4):
-    matplotlib.use('Agg')
+def plot_3d_motion_smplh(
+    joints, out_name, title, kinematic_chain, figsize=(10, 10), fps=120, radius=4
+):
+    matplotlib.use("Agg")
     data = joints.copy().reshape(len(joints), -1, 3)
-    
+
     nb_joints = joints.shape[1]
     smpl_kinetic_chain = kinematic_chain
     # limits = 1000 if nb_joints == 21 else 2
     limits = 2
     MINS = data.min(axis=0).min(axis=0)
     MAXS = data.max(axis=0).max(axis=0)
-    colors = ['red', 'blue', 'black', 'red', 'blue',
-              'darkblue', 'darkblue', 'darkblue', 'darkblue', 'darkblue',
-              'darkred', 'darkred', 'darkred', 'darkred', 'darkred']
+    colors = [
+        "red",
+        "blue",
+        "black",
+        "red",
+        "blue",
+        "darkblue",
+        "darkblue",
+        "darkblue",
+        "darkblue",
+        "darkblue",
+        "darkred",
+        "darkred",
+        "darkred",
+        "darkred",
+        "darkred",
+    ]
     frame_number = data.shape[0]
 
     height_offset = MINS[1]
@@ -129,39 +148,50 @@ def plot_3d_motion_smplh(joints, out_name, title, kinematic_chain, figsize=(10, 
             ax.set_ylim(-limits, limits)
             ax.set_zlim(0, limits)
             ax.grid(b=False)
+
         def plot_xzPlane(minx, maxx, miny, minz, maxz):
             ## Plot a plane XZ
             verts = [
                 [minx, miny, minz],
                 [minx, miny, maxz],
                 [maxx, miny, maxz],
-                [maxx, miny, minz]
+                [maxx, miny, minz],
             ]
             xz_plane = Poly3DCollection([verts])
             xz_plane.set_facecolor((0.5, 0.5, 0.5, 0.5))
             ax.add_collection3d(xz_plane)
+
         # fig = plt.figure(figsize=(480/96., 320/96.), dpi=96) if nb_joints == 21 else plt.figure(figsize=(10, 10), dpi=96)
         fig = plt.figure(figsize=(10, 10), dpi=96)
-        if title is not None :
-            wraped_title = '\n'.join(wrap(title, 40))
+        if title is not None:
+            wraped_title = "\n".join(wrap(title, 40))
             fig.suptitle(wraped_title, fontsize=16)
         ax = p3.Axes3D(fig)
-        
+
         init()
-        
+
         ax.lines = []
         ax.collections = []
         ax.view_init(elev=110, azim=-90)
         ax.dist = 7.5
         #         ax =
-        plot_xzPlane(MINS[0] - trajec[index, 0], MAXS[0] - trajec[index, 0], 0, MINS[2] - trajec[index, 1],
-                     MAXS[2] - trajec[index, 1])
+        plot_xzPlane(
+            MINS[0] - trajec[index, 0],
+            MAXS[0] - trajec[index, 0],
+            0,
+            MINS[2] - trajec[index, 1],
+            MAXS[2] - trajec[index, 1],
+        )
         #         ax.scatter(data[index, :22, 0], data[index, :22, 1], data[index, :22, 2], color='black', s=3)
 
         if index > 1:
-            ax.plot3D(trajec[:index, 0] - trajec[index, 0], np.zeros_like(trajec[:index, 0]),
-                      trajec[:index, 1] - trajec[index, 1], linewidth=1.0,
-                      color='blue')
+            ax.plot3D(
+                trajec[:index, 0] - trajec[index, 0],
+                np.zeros_like(trajec[:index, 0]),
+                trajec[:index, 1] - trajec[index, 1],
+                linewidth=1.0,
+                color="blue",
+            )
         #             ax = plot_xzPlane(ax, MINS[0], MAXS[0], 0, MINS[2], MAXS[2])
 
         for i, (chain, color) in enumerate(zip(smpl_kinetic_chain, colors)):
@@ -170,88 +200,132 @@ def plot_3d_motion_smplh(joints, out_name, title, kinematic_chain, figsize=(10, 
                 linewidth = 4.0
             else:
                 linewidth = 2.0
-            ax.plot3D(data[index, chain, 0], data[index, chain, 1], data[index, chain, 2], linewidth=linewidth,
-                      color=color)
+            ax.plot3D(
+                data[index, chain, 0],
+                data[index, chain, 1],
+                data[index, chain, 2],
+                linewidth=linewidth,
+                color=color,
+            )
         #         print(trajec[:index, 0].shape)
 
-        plt.axis('off')
+        plt.axis("off")
         ax.set_xticklabels([])
         ax.set_yticklabels([])
         ax.set_zticklabels([])
-    
-        if out_name is not None : 
+
+        if out_name is not None:
             plt.savefig(out_name, dpi=96)
             plt.close()
-            
-        else : 
+
+        else:
             io_buf = io.BytesIO()
-            fig.savefig(io_buf, format='raw', dpi=96)
+            fig.savefig(io_buf, format="raw", dpi=96)
             io_buf.seek(0)
             # print(fig.bbox.bounds)
-            arr = np.reshape(np.frombuffer(io_buf.getvalue(), dtype=np.uint8),
-                                newshape=(int(fig.bbox.bounds[3]), int(fig.bbox.bounds[2]), -1))
+            arr = np.reshape(
+                np.frombuffer(io_buf.getvalue(), dtype=np.uint8),
+                newshape=(int(fig.bbox.bounds[3]), int(fig.bbox.bounds[2]), -1),
+            )
             io_buf.close()
             plt.close()
             return arr
 
     out = []
-    for i in range(frame_number) : 
+    for i in range(frame_number):
         out.append(update(i))
     out = np.stack(out, axis=0)
     return torch.from_numpy(out)
 
 
-def draw_to_batch_smplh(smpl_joints_batch, kinematic_chain, title_batch=None, outname=None) : 
-    
+def draw_to_batch_smplh(
+    smpl_joints_batch, kinematic_chain, title_batch=None, outname=None
+):
+
     batch_size = len(smpl_joints_batch)
     out = []
-    for i in range(batch_size) : 
-        out.append(plot_3d_motion_smplh(smpl_joints_batch[i], None, title_batch[i] if title_batch is not None else None, kinematic_chain))
+    for i in range(batch_size):
+        out.append(
+            plot_3d_motion_smplh(
+                smpl_joints_batch[i],
+                None,
+                title_batch[i] if title_batch is not None else None,
+                kinematic_chain,
+            )
+        )
         if outname is not None:
             imageio.mimsave(outname[i], np.array(out[-1]), fps=20)
     out = torch.stack(out, axis=0)
     return out
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     # load your own 623-dim vector file here
     data_list = [
-        'aist/subset_0000/Dance_Break_3_Step_clip_1',
-        'animation/subset_0000/Ways_To_Catch_360',
-        'dance/subset_0000/A_Han_And_Tang_Dance_That_You_Will_Never_Get_Tired_Of_clip_1',
-        'EgoBody/recording_20210907_S02_S01_01/body_idx_0/000',
-        'fitness/subset_0000/Perform_Ballet_clip_1',
-        'game_motion/subset_0000/Battle_Motion_Anti_Foot_Kick_Motion_clip_1',
-        'GRAB/s1/airplane_fly_1',
-        'HAA500/subset_0001/Badminton_Underswing_clip_1',
-        'humanml/000000',
-        'humman/subset_0000/A_Hero_S_Positive_clip_1',
-        'idea400/subset_0000/Blowing_A_Balloon_During_Walking',
-        'kungfu/subset_0000/32_Form_Tai_Chi_Demonstration_Master_Form3_Single_Whip_Left',
-        'music/subset_0000/Ancient_Drum_clip_1',
-        'perform/subset_0000/Answer_Phone_clip_1'
+        "aist/subset_0000/Dance_Break_3_Step_clip_1",
+        "animation/subset_0000/Ways_To_Catch_360",
+        "dance/subset_0000/A_Han_And_Tang_Dance_That_You_Will_Never_Get_Tired_Of_clip_1",
+        "EgoBody/recording_20210907_S02_S01_01/body_idx_0/000",
+        "fitness/subset_0000/Perform_Ballet_clip_1",
+        "game_motion/subset_0000/Battle_Motion_Anti_Foot_Kick_Motion_clip_1",
+        "GRAB/s1/airplane_fly_1",
+        "HAA500/subset_0001/Badminton_Underswing_clip_1",
+        "humanml/000000",
+        "humman/subset_0000/A_Hero_S_Positive_clip_1",
+        "idea400/subset_0000/Blowing_A_Balloon_During_Walking",
+        "kungfu/subset_0000/32_Form_Tai_Chi_Demonstration_Master_Form3_Single_Whip_Left",
+        "music/subset_0000/Ancient_Drum_clip_1",
+        "perform/subset_0000/Answer_Phone_clip_1",
     ]
-    
+
     for data in data_list:
-        print (data)
+        print(data)
         outname = f'./vis_results/feat_body_{data.replace("/","_")}.gif'
         if os.path.exists(outname):
             continue
-        
-        base_path = '/inspire/hdd/ws-f4d69b29-e0a5-44e6-bd92-acf4de9990f0/public-project/qiuxipeng-24028/workspace/pli/HumanoidGPT/datasets/motionx/data'
-        example_path = f'{base_path}/motion_data/vectors_263/{data}.npy'
+
+        base_path = "/inspire/hdd/ws-f4d69b29-e0a5-44e6-bd92-acf4de9990f0/public-project/qiuxipeng-24028/workspace/pli/HumanoidGPT/datasets/motionx/data"
+        example_path = f"{base_path}/motion_data/vectors_263/{data}.npy"
         features = torch.from_numpy(np.load(example_path))
         global_postion = recover_from_ric(features, 22).detach().cpu().numpy()
 
-        body_joints_id = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21] #22 joints
+        body_joints_id = [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+        ]  # 22 joints
 
-        t2m_kinematic_chain = [[0, 2, 5, 8, 11], [0, 1, 4, 7, 10], [0, 3, 6, 9, 12, 15], [9, 14, 17, 19, 21], [9, 13, 16, 18, 20]]
+        t2m_kinematic_chain = [
+            [0, 2, 5, 8, 11],
+            [0, 1, 4, 7, 10],
+            [0, 3, 6, 9, 12, 15],
+            [9, 14, 17, 19, 21],
+            [9, 13, 16, 18, 20],
+        ]
 
         xyz = global_postion.reshape(1, -1, 22, 3)
 
         # feel free to change the output name
-        pose_vis = draw_to_batch_smplh(xyz, t2m_kinematic_chain, title_batch=None, outname=[outname])
-        print ("Good Job!")
-
-
+        pose_vis = draw_to_batch_smplh(
+            xyz, t2m_kinematic_chain, title_batch=None, outname=[outname]
+        )
+        print("Good Job!")
