@@ -68,7 +68,7 @@ def build_callbacks(cfg, phase='test', logger=None, **kwargs):
     logger = logger
 
     # Rich Progress Bar
-    callbacks.append(progressBar())
+    # callbacks.append(progressBar())
 
     # Checkpoint Callback
     if phase == 'train':
@@ -117,8 +117,8 @@ def getCheckpointCallback(cfg, logger=None, **kwargs):
         'filename': "{epoch}",
         'monitor': "step",
         'mode': "max",
-        'every_n_epochs': cfg.LOGGER.VAL_EVERY_STEPS,
-        'save_top_k': 1,
+        'every_n_epochs': cfg.LOGGER.VAL_EVERY_STEPS * 5,
+        'save_top_k': 3,
         'save_last': True,
         'save_on_train_epoch_end': True
     }

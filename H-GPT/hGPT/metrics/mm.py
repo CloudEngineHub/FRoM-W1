@@ -11,9 +11,9 @@ from hGPT.config import instantiate_from_config
 class MMMetrics(Metric):
     # MultiModality (MM) measures the diversity of generated 
     # motions within the same text description of motion
-    
     full_state_update = True
-    def __init__(self, cfg, dataname='humanml3d', mm_num_times=10, dist_sync_on_step=True, **kwargs):
+    
+    def __init__(self, cfg, dataname, mm_num_times=10, dist_sync_on_step=True, **kwargs):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.name = "MultiModality scores"
         self.cfg = cfg
@@ -46,13 +46,22 @@ class MMMetrics(Metric):
         self.t2m_motionencoder = instantiate_from_config(cfg.METRIC.TM2T.t2m_motionencoder)
 
         # load pretrianed
-        if self.dataname == "kit":
-            dataname = "kit"
+        if self.dataname == "motionx":
+            dataname = "motionx"
+        elif self.dataname == "t2mx":
+            dataname = "t2mx"
+        elif self.dataname == "t2mx-noise":
+            dataname = "t2mx-noise"
+        elif self.dataname == "t2mx-rephrase":
+            dataname = "t2mx-rephrase"
         else:
-            dataname = "t2m"
+            print ("dataset name: ", self.dataname)
+            raise NotImplementedError
+        assert 't2mx' in dataname
+        
         t2m_checkpoint = torch.load(os.path.join(
             cfg.METRIC.TM2T.t2m_path, dataname,
-            "text_mot_match/model/finest_v4.tar"), # finest_v1.tar")
+            "text_mot_match/model/finest.tar"), # finest_v1.tar")
                                     map_location="cpu")
 
         self.t2m_textencoder.load_state_dict(t2m_checkpoint["text_encoder"])
@@ -84,8 +93,11 @@ class MMMetrics(Metric):
             return metrics
 
         # cat all embeddings
+        shapes = [item.shape for item in self.mm_motion_embeddings]
         all_mm_motions = torch.cat(self.mm_motion_embeddings,
                                    axis=0).cpu().numpy()
+        # print(all_mm_motions.shape)
+        # print(self.mm_motion_embeddings[0].shape)
         metrics['MultiModality'] = calculate_multimodality_np(
             all_mm_motions, self.mm_num_times)
 
@@ -120,19 +132,23 @@ class MMMetrics(Metric):
     def get_motion_embeddings(self, feats: Tensor, lengths: List[int]):
         m_lens = torch.tensor(lengths)
         m_lens = torch.div(m_lens,
-                           self.cfg.DATASET.HUMANML3D.UNIT_LEN,
+                           self.cfg.DATASET.MOTIONX.UNIT_LEN,
                            rounding_mode="floor")
 
-        if feats.shape[2] == 623:
-            body_joints = 22
-            joints = 52
-            selected_idx = list(range(0, 4+(body_joints - 1)*3)) + list(range(4+(joints - 1)*3, 4+(joints - 1)*3+(body_joints - 1)*6)) + \
-                list(range(4 + (joints - 1)*9, 4 + (joints - 1) *9 + body_joints *3)) + list(range(619, 623))
-            selected_idx = torch.tensor(selected_idx, dtype=torch.int32, device = feats.device)
-            feats = feats[:, :, selected_idx]
-            assert feats.shape[2] == 263
-
+        # if feats.shape[2] == 623:
+        #     body_joints = 22
+        #     joints = 52
+        #     selected_idx = list(range(0, 4+(body_joints - 1)*3)) + list(range(4+(joints - 1)*3, 4+(joints - 1)*3+(body_joints - 1)*6)) + \
+        #         list(range(4 + (joints - 1)*9, 4 + (joints - 1) *9 + body_joints *3)) + list(range(619, 623))
+        #     selected_idx = torch.tensor(selected_idx, dtype=torch.int32, device = feats.device)
+        #     feats = feats[:, :, selected_idx]
+        #     assert feats.shape[2] == 263
+        '''
+            yfgao: `feats` for VQ movement encoder previously
+            `feats[..., :-4]` for movement encoder now
+        '''
         mov = self.t2m_moveencoder(feats[..., :-4]).detach()
+        # mov = self.t2m_moveencoder(feats).detach()
         emb = self.t2m_motionencoder(mov, m_lens)
 
         # [bs, nlatent*ndim] <= [bs, nlatent, ndim]

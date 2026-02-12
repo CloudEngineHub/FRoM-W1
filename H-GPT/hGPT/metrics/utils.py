@@ -40,7 +40,6 @@ def euclidean_distance_matrix(matrix1, matrix2):
     dists = torch.sqrt(d1 + d2 + d3)  # broadcasting
     return dists
 
-
 def euclidean_distance_matrix_np(matrix1, matrix2):
     """
     Params:
@@ -56,7 +55,7 @@ def euclidean_distance_matrix_np(matrix1, matrix2):
                 keepdims=True)  # shape (num_test, 1)
     d3 = np.sum(np.square(matrix2), axis=1)  # shape (num_train, )
     dists = np.sqrt(d1 + d2 + d3)  # broadcasting
-    return dists
+    return torch.from_numpy(dists)
 
 
 def calculate_top_k(mat, top_k):

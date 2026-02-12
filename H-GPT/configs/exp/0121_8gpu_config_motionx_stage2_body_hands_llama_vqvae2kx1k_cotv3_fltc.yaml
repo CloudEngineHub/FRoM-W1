@@ -1,0 +1,137 @@
+SEED_VALUE: 1234 # Seed value
+DEBUG: True # Debug mode
+# FULL_CONFIG: false
+
+NAME: HGPT_MotionX_2Kx1K_10wData_LLAMA_LoRA_COTv3_2e5_300epoch_fltc # Experiment names
+ACCELERATOR: 'gpu' # Devices optioncal: “cpu”, “gpu”, “tpu”, “ipu”, “hpu”, “mps, “auto”
+NUM_NODES: 1 # Number of GPU nodes for distributed training
+DEVICE: [0,1,2,3,4,5,6,7] # Index of gpus eg. [0] or [0,1,2,3] [0,1,2,3,4,5,6,7], "auto"
+
+DATASET:
+  target: hGPT.data.MotionX.MotionXDataModule
+  CODE_PATH: TOKENS
+  TASK_PATH: 'datasets/motionx/data/instructions/template_pretrain_cot.json' # Notice this task path and other cot config.
+  NFEATS: 623
+  JOINT_TYPE: 'motionx'
+  HUMANML3D: # For Eval
+    MAX_MOTION_LEN: 196
+    MIN_MOTION_LEN: 40
+    MAX_TEXT_LEN: 20
+    PICK_ONE_TEXT: true
+    FRAME_RATE: 20.0
+    UNIT_LEN: 4
+    STD_TEXT: False
+  MOTIONX:
+    FRAME_RATE: 30.0
+    MAX_MOTION_LEN: 400 # 196 before
+    MIN_MOTION_LEN: 40
+    MAX_TEXT_LEN: 20 # TODO: check this params
+    PICK_ONE_TEXT: true 
+    UNIT_LEN: 4
+    STD_TEXT: False
+    COT: 'v3' # 'v1'
+
+model:
+  target: hGPT.models.hgpt.HumanoidGPT
+  params:
+    condition: 'text'
+    task: 't2m'
+    lm: ${lm.llama_fltc}
+    motion_vae: ${vq.vqvae_2k_1k}
+    stage: ${TRAIN.STAGE}
+    codebook_size: ${model.params.motion_vae.params.code_num}
+    metrics_dict: ${METRIC.TYPE}
+    debug: ${DEBUG} 
+    
+TRAIN:
+  #---------------------------------
+  STAGE: lm_pretrain # stage "vae" , "lm_pretrain", "lm_instruct"
+  SPLIT: 'train' # Training split name
+  PRECISION: 'bf16-mixed' # PRECISION: 'bf16-mixed'
+  #---------------------------------
+  # NUM_JOINTS: 22
+  NUM_JOINTS: 52
+  #---------------------------------
+  NUM_WORKERS: 16 # Number of workers, 16 before
+  BATCH_SIZE: 2 # Size of batches, 16 before
+  ACCUMULATE_GRAD_BATCHES: 8 # 8 before
+  END_EPOCH: 300 # End epoch
+  RESUME: '' # Resume training from this path
+  PRETRAINED: '' # Preatrained model path
+  PRETRAINED_VAE: 'experiments/hgpt/VQVAE_MotionX_2Kx1K_2024-12-20-16-56-10/checkpoints/last.ckpt' # checkpoints/MotionGPT-base/motiongpt_s3_h3d.tar # Vae model path
+
+  OPTIM:
+    target: AdamW
+    params:
+      lr: 2e-5
+      betas: [0.9, 0.99]
+      weight_decay: 0.0
+
+  LR_SCHEDULER:
+    target: CosineAnnealingLR
+    params:
+      T_max: ${eval:${LOGGER.VAL_EVERY_STEPS} * 100}
+      eta_min: 1e-6
+
+# Evaluating Configuration
+EVAL:
+  SPLIT: val
+  BATCH_SIZE: 2 # Evaluating Batch size, 32 before
+  NUM_WORKERS: 8 # Validation Batch size, 8 before
+
+TEST:
+  DATASETS: ['MotionX']
+  CHECKPOINTS: 'experiments/hgpt/HGPT_MotionX_2Kx1K_10wData_LLAMA_LoRA_NoCOT_2e5_300epoch_fltc/checkpoints/last.ckpt/checkpoint/mp_rank_00_model_states.pt' # checkpoints/MotionGPT-base/motiongpt_s3_h3d.tar
+  SPLIT: test
+  BATCH_SIZE: 8 # training Batch size, 32 before
+  NUM_WORKERS: 1 # Testing Batch size, 1 before
+
+  SAVE_PREDICTIONS: True # Weather to save predictions
+  COUNT_TIME: True # Weather to count time during test
+  REPLICATION_TIMES: 1 # Number of times to replicate the test, 20 before
+  REP_I: 0 # For counting replication times
+
+DEMO:
+  # SPLIT: test
+  CHECKPOINTS: 'experiments/hgpt/HGPT_MotionX_2Kx1K_10wData_LLAMA_LoRA_2e5_300epoch/checkpoints/last.ckpt/checkpoint/mp_rank_00_model_states.pt'
+  # BATCH_SIZE: 512 # training Batch size
+  EXAMPLE: 'scripts/demos/t2m.txt'
+  TASK: t2m
+
+LOSS:
+  LAMBDA_FEATURE: 1.0
+  LAMBDA_VELOCITY: 0.5
+  LAMBDA_COMMIT: 0.02
+  LAMBDA_CLS: 1.0
+  ABLATION:
+    RECONS_LOSS: 'l1_smooth'
+
+METRIC:
+  TYPE: ['TM2TMetrics', 'PredMetrics']
+  FORCE_IN_METER: True
+  DIST_SYNC_ON_STEP: True
+  MM_NUM_SAMPLES: 100 # Number of samples for multimodal test
+  MM_NUM_REPEATS: 30 # Number of repeats for multimodal test
+  MM_NUM_TIMES: 10 # Number of times to repeat the multimodal test
+  DIVERSITY_TIMES: 300 # Number of times to repeat the diversity test
+  TM2T: ${eval.tm2t}
+
+LOGGER:
+  VAL_EVERY_STEPS: 10
+  TYPE: ['tensorboard', 'wandb']
+  # LOGGERS: ['tensorboard', 'wandb']
+  TENSORBOARD:
+    target: pytorch_lightning.loggers.TensorBoardLogger
+    params:
+      save_dir: ${FOLDER_EXP}
+      name: 'tensorboard'
+      version: ''
+  WANDB:
+    target: pytorch_lightning.loggers.WandbLogger
+    params:
+      project: humanoidgpt
+      offline: True
+      id: null
+      version: ''
+      name: ${NAME}
+      save_dir: ${FOLDER_EXP}

@@ -70,10 +70,14 @@ class HumanoidGPT(BaseModel):
         cot_ref = batch["cot"]
         tasks = []
         
-        # if self.trainer.datamodule.is_mm:
-            # instructions = pjoin(self.datamodule.hparams.data_root, 'instructions', 
-            #                      'template_instructions.json')
-            # raise NotImplementedError
+        try:
+            if self.trainer.datamodule.is_mm:
+                texts = texts * self.hparams.cfg.METRIC.MM_NUM_REPEATS
+                feats_ref = feats_ref.repeat_interleave(
+                    self.hparams.cfg.METRIC.MM_NUM_REPEATS, dim=0)
+                lengths = lengths * self.hparams.cfg.METRIC.MM_NUM_REPEATS
+        except:
+            print (">>>>>> RuntimeError: HumanoidGPT is not attached to a `Trainer`.")
 
         if self.hparams.cfg.DATASET.TASK_PATH:
             instructions = pjoin(self.hparams.cfg.DATASET.TASK_PATH)
@@ -99,6 +103,10 @@ class HumanoidGPT(BaseModel):
             if len(outputs[i]) > 1:
                 motion = self.vae.decode(outputs[i])
             else:
+                print (f"self.hparams.codebook_size: {self.hparams.codebook_size}")
+                print (">>>  len(outputs[i]) <= 1")
+                # exit(0)
+                
                 motion = torch.zeros_like(feats_ref[i:i + 1, ...])
 
             min_len[i] = min(motion.shape[1], lengths[i])
@@ -108,11 +116,10 @@ class HumanoidGPT(BaseModel):
         joints_ref = self.feats2joints(feats_ref)
         joints_rst = self.feats2joints(feats_rst)
 
-        # joints to smpl(x)
-        # https://github.com/ZhengyiLuo/motion-diffusion-model
-        rot2xyz_pose_rep = 'xyz'
-        rot2xyz_mask = None
-        
+        # # Renorm for evaluation
+        if self.datamodule.hparams.mean_eval is not None:
+            feats_ref = self.datamodule.renorm4t2m(feats_ref)
+            feats_rst = self.datamodule.renorm4t2m(feats_rst)
 
         # return set
         rs_set = {
@@ -127,46 +134,7 @@ class HumanoidGPT(BaseModel):
             "cot_rst": cleaned_text
         }
         return rs_set
-
-    @torch.no_grad()
-    def inference(self, batch):
-        if len(batch["text"]) != 1:
-            raise ValueError("Batch size must be 1 for inference.")
-        texts = batch["text"] # batch of length 1
-        formatted_texts = []
-        formatted_texts.append(f"<soi>{texts[0]}<eoi>")
-        outputs, cleaned_text = self.lm.generate_direct(formatted_texts,
-                                                        max_length=self.lm.max_length,
-                                                        num_beams=1,
-                                                        do_sample=True)
-        outputs[0] = torch.clamp(outputs[0],
-                                 0,
-                                 self.hparams.codebook_size - 1,
-                                 out=None)
-        
-        motion = self.vae.decode(outputs[0])
-        
-        joints_rst = self.feats2joints(motion)
-        rs_set = {
-            "m_rst": motion,
-            "joints_rst": joints_rst,
-            "text": texts,
-            "length": [motion.shape[1]],
-            "cot_rst": cleaned_text
-        }
-
-        return rs_set
-        
-        
-        # print(outputs[0])
-        # print(len(outputs[0]))
-        # exit(0)
-        # rs_set = {
-        #     'm_rst': 
-        # }
-        
-
-
+    
     def train_vae_forward(self, batch):
         # batch detach
         feats_ref = batch["motion"]
@@ -198,6 +166,7 @@ class HumanoidGPT(BaseModel):
         
         # Repeat for multimodal evaluation
         if self.trainer.datamodule.is_mm:
+            texts = texts * self.hparams.cfg.METRIC.MM_NUM_REPEATS
             feats_ref = feats_ref.repeat_interleave(
                 self.hparams.cfg.METRIC.MM_NUM_REPEATS, dim=0)
             lengths = lengths * self.hparams.cfg.METRIC.MM_NUM_REPEATS
@@ -215,6 +184,12 @@ class HumanoidGPT(BaseModel):
         joints_ref = self.feats2joints(feats_ref)
         joints_rst = self.feats2joints(feats_rst)
 
+        # # Renorm for evaluation
+        if self.datamodule.hparams.mean_eval is not None:
+            feats_ref = self.datamodule.renorm4t2m(feats_ref)
+            feats_rst = self.datamodule.renorm4t2m(feats_rst)
+
+        
         # Return set
         rs_set = {
             "name": names,
@@ -233,6 +208,7 @@ class HumanoidGPT(BaseModel):
     def allsplit_step(self, split: str, batch, batch_idx):
         # Compute the losses
         loss = None
+        
         if split in ["train"]:
             if self.hparams.stage == "vae":
                 rs_set = self.train_vae_forward(batch)
@@ -243,11 +219,10 @@ class HumanoidGPT(BaseModel):
             else:
                 raise NotImplementedError
             
-        elif split in ["val", "test"]:
+        elif split in ["val", "test", "test_small"]:
             # Compute the metrics
             if self.hparams.stage == "vae":
                 rs_set = self.val_vae_forward(batch, split)
-                
             elif self.hparams.stage in ["lm_pretrain", "lm_instruct"]:
                 if self.hparams.task == "t2m":
                     rs_set = self.val_t2m_forward(batch)
@@ -271,7 +246,7 @@ class HumanoidGPT(BaseModel):
                                             rs_set["joints_ref"], lengths)
                     elif metric == "TM2TMetrics":
                         if self.hparams.stage in [
-                                "lm_instruct", "lm_pretrain"
+                                "vae", "lm_instruct", "lm_pretrain"
                         ]:
                             word_embs = batch['word_embs']
                             pos_ohot = batch['pos_ohot']
@@ -286,20 +261,25 @@ class HumanoidGPT(BaseModel):
                                 text_lengths = text_lengths.repeat_interleave(
                                     self.hparams.cfg.METRIC.MM_NUM_REPEATS,
                                     dim=0)
+                                
+                                getattr(self.metrics,
+                                        metric).update(rs_set["m_rst"],
+                                                    rs_set['length'])
+                            else:
+                                getattr(self.metrics, metric).update(
+                                    feats_ref=rs_set["m_ref"],
+                                    feats_rst=rs_set["m_rst"],
+                                    lengths_ref=lengths,
+                                    lengths_rst=rs_set['length'],
+                                    word_embs=word_embs,
+                                    pos_ohot=pos_ohot,
+                                    text_lengths=text_lengths,
+                                )
                         else:
+                            raise NotImplementedError
                             word_embs = None
                             pos_ohot = None
                             text_lengths = None
-
-                        getattr(self.metrics, metric).update(
-                            feats_ref=rs_set["m_ref"],
-                            feats_rst=rs_set["m_rst"],
-                            lengths_ref=lengths,
-                            lengths_rst=rs_set['length'],
-                            word_embs=word_embs,
-                            pos_ohot=pos_ohot,
-                            text_lengths=text_lengths,
-                        )
                     elif metric == "UncondMetrics":
                         getattr(self.metrics, metric).update(
                             recmotion_embeddings=rs_set["lat_rm"],
@@ -325,7 +305,7 @@ class HumanoidGPT(BaseModel):
                 raise NotImplementedError
 
             # return forward output rather than loss during test
-            if split in ["test"]:
+            if 'test' in split:
                 if self.hparams.task in ["vae", "t2m"]:
                     return rs_set["name"], rs_set['m_ref'], rs_set['m_rst'], \
                         rs_set["joints_ref"], rs_set["joints_rst"], rs_set["length"], \

@@ -9,8 +9,11 @@ import numpy as np
 import torch
 from torch import Tensor, nn
 from torch.distributions.distribution import Distribution
+import torch.nn.functional as F
 
 import heapq
+import inspect
+import random
 
 from transformers import (
     AutoModelForSeq2SeqLM,
@@ -40,6 +43,9 @@ class MLM(nn.Module):
         max_length: int,
         lora: bool,
         quota_ratio: float,
+        mask_inputs: bool,
+        pkeep: float,
+        cont_loss: bool,
         # noise_density: float,
         # mean_noise_span_length: int,
         **kwargs,
@@ -58,6 +64,9 @@ class MLM(nn.Module):
         # self.mean_noise_span_length = mean_noise_span_length
         self.quota_ratio = quota_ratio
         self.stage = stage
+        self.mask_inputs = mask_inputs
+        self.pkeep = pkeep
+        self.cont_loss = cont_loss
 
         # Instantiate language model
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, legacy=True)
@@ -69,7 +78,7 @@ class MLM(nn.Module):
             self.language_model = GPT2LMHeadModel.from_pretrained(model_path)
             self.lm_type = 'dec'
         elif model_type == "llama":
-            self.language_model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
+            self.language_model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True, output_hidden_states=True)
             self.lm_type = 'dec'
         else:
             raise ValueError("type must be either seq2seq or conditional")
@@ -118,7 +127,11 @@ class MLM(nn.Module):
                 lora_dropout=0.05)
             self.language_model = get_peft_model(self.language_model,
                                                  peft_config)
-    
+        # print (">>> padding token:")
+        # print (self.tokenizer.pad_token_id)
+        # print (self.tokenizer.pad_token)
+        # exit(0)
+        
     ########################################### Model Training ##########################################
     
     def forward(self, texts: List[str], motion_tokens: Tensor,
@@ -156,10 +169,11 @@ class MLM(nn.Module):
         # print (tasks)                      
         # print (cot)
         # print ("* " * 20)
+        # exit(0)
         
         self.tokenizer.padding_side = "right"
-
-        motion_strings = self.motion_token_to_string(motion_tokens, motion_tokens_len)
+        
+        motion_strings = self.motion_token_to_string(motion_tokens, motion_tokens_len, self.pkeep)
         # print (motion_strings)
         
         # Supervised or unsupervised
@@ -175,40 +189,82 @@ class MLM(nn.Module):
         else:
             inputs, outputs = self.template_fulfill(tasks, motion_tokens_len,
                                                     motion_strings, texts, cot)
+            inputs = [item + '\n' for item in inputs]
             labels = []
             for i in range(len(inputs)):
-                labels.append(inputs[i] + '\n' + outputs[i] +
-                              self.tokenizer.eos_token)
+                labels.append(inputs[i] + outputs[i] +
+                              self.tokenizer.eos_token) # + '\n'
         # print (labels)
         # print ("* " * 20)
         # # exit(0)
         
-        inputs = self.tokenizer(labels,
+        model_inputs = self.tokenizer(labels,
                                 padding=True,
                                 # padding='max_length',
                                 max_length=self.max_length,
                                 truncation=True,
                                 return_attention_mask=True,
                                 return_tensors="pt")
-        # print (inputs)
+        # print ("full inputs: ")
+        # print (model_inputs)
+        # print (model_inputs.attention_mask.shape)
         # print ("* " * 20)
+        
         # input_ids = inputs['input_ids']  # 获取 input_ids
         # # 将每个样本的 token IDs 转换回字符串
         # decoded_strings = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in input_ids]
         # # 打印结果
         # for i, text in enumerate(decoded_strings):
-        #     print(f"Sample {i+1}: {text}")
+        #     print(f"Sample {i}: {text}")
+        #     print(f"Mask {i}: {inputs.attention_mask[i]}")
         
-        labels_input_ids = inputs.input_ids.to(motion_tokens.device)
-        labels_attention_mask = inputs.attention_mask.to(motion_tokens.device)
+        labels_input_ids = model_inputs.input_ids.to(motion_tokens.device)
+        labels_attention_mask = model_inputs.attention_mask.to(motion_tokens.device)
+        
+        labels = model_inputs["input_ids"]
+        if self.mask_inputs:
+            input_tokens = self.tokenizer(inputs,
+                                                padding=True,
+                                                max_length=self.max_length,
+                                                truncation=True,
+                                                return_attention_mask=True,
+                                                return_tensors="pt"
+                                                )
+            instruction_attn_mask = input_tokens.attention_mask
+            
+            batch_size = instruction_attn_mask.shape[0]
+            assert instruction_attn_mask.shape[1] <= labels.shape[1]
+            if instruction_attn_mask.shape[1] < labels.shape[1]:
+                padding = torch.zeros(batch_size, labels.shape[1] - instruction_attn_mask.shape[1], dtype=instruction_attn_mask.dtype, device=instruction_attn_mask.device)
+                extended_mask = torch.cat([instruction_attn_mask, padding], dim=1)
+            else:
+                extended_mask = instruction_attn_mask
+
+            labels[extended_mask == 1] = -100
+            
         outputs = self.language_model(input_ids=labels_input_ids,
                                       attention_mask=labels_attention_mask,
-                                      labels=inputs["input_ids"])
+                                      labels=labels)
         
         # print (outputs.keys())
-        # # print (outputs)
-        # # print ("* " * 20)
-        # exit(0)
+        # print (outputs['loss'])
+        # print (outputs['logits'].shape)
+        # print (outputs['hidden_states'][-1].shape)
+
+        if self.cont_loss:
+            batch_size, seq_len = labels_attention_mask.shape
+            last_one_indices = (1-labels_attention_mask).int().argmax(dim=1) - 1
+            last_one_indices[last_one_indices == -1] = (seq_len-1)
+            
+            last_hidden_states = outputs['hidden_states'][-1][torch.arange(batch_size), last_one_indices]
+            
+            normalized = F.normalize(last_hidden_states, p=2, dim=1)
+            sim_matrix = torch.matmul(normalized, normalized.T)
+            mask = torch.triu(torch.ones(batch_size, batch_size), diagonal=1).bool()
+            similarities = sim_matrix[mask]
+            # print (similarities)
+            outputs['loss'] += similarities.mean()
+
         return outputs
 
     ########################################### Model Test ##########################################
@@ -230,7 +286,7 @@ class MLM(nn.Module):
         # print (texts)
         
         if task in ["t2m", "m2m", "pred", "inbetween"]:
-            print("Here is the generate_conditional function.")
+
             if task == "t2m":
                 assert texts is not None
                 if with_len:
@@ -239,12 +295,8 @@ class MLM(nn.Module):
                 motion_strings = [''] * len(texts)
                 lengths = [0] * len(texts)
             
-            print("original texts: ")
-            print(texts)
             inputs, outputs = self.template_fulfill(tasks, lengths,
                                                     motion_strings, texts, cot)
-            print("inputs: ")
-            print(inputs)
             # print ("* " * 10)
             # print ("inputs: ")
             # print (inputs)
@@ -274,8 +326,8 @@ class MLM(nn.Module):
             texts = [text + "\n" for text in texts] # "\n<soc>"
             self.tokenizer.padding_side = 'left'
         
-        print ("texts: ")
-        print (texts)
+        # print ("texts: ")
+        # print (texts)
         
         source_encoding = self.tokenizer(texts,
                                          padding=True,
@@ -308,8 +360,8 @@ class MLM(nn.Module):
         outputs_string = self.tokenizer.batch_decode(outputs,
                                                      skip_special_tokens=True)
         
-        print ("outputs_string: ")
-        print (outputs_string)
+        # print ("outputs_string: ")
+        # print (outputs_string)
         # exit(0)
         
         outputs_tokens, cleaned_text = self.motion_string_to_token(
@@ -319,12 +371,23 @@ class MLM(nn.Module):
     
     ########################################### Motion Token <==> String ###################################
     
-    def motion_token_to_string(self, motion_token: Tensor, motion_tokens_len: List[int]):
+    def motion_token_to_string(self, motion_token: Tensor, motion_tokens_len: List[int], pkeep: float):
         motion_string = []
         for i in range(len(motion_token)):
             motion_i = motion_token[i].cpu(
             ) if motion_token[i].device.type == 'cuda' else motion_token[i]
             motion_list = motion_i.tolist()[:motion_tokens_len[i]]
+            
+            if pkeep < 1.0:
+                processed_list = []
+                for token_id in motion_list:
+                    if random.random() < pkeep:
+                        processed_list.append(token_id)
+                    else:
+                        random_id = random.randint(0, self.m_codebook_size - 1)
+                        processed_list.append(random_id)
+                motion_list = processed_list
+            
             motion_string.append(
                 (f'<motion_id_{self.m_codebook_size}>' +
                  ''.join([f'<motion_id_{int(i)}>' for i in motion_list]) +

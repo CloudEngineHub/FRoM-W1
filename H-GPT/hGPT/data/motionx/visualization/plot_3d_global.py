@@ -261,10 +261,10 @@ def plot_3d_motion_smplh(joints, out_name, title, kinematic_chain, figsize=(10, 
 
         init()
 
-        ax._lines = []
-        ax._collections = []
+        ax.lines = []
+        ax.collections = []
         ax.view_init(elev=110, azim=-90)
-        ax._dist = 7.5
+        ax.dist = 7.5
 
         plot_xzPlane(MINS[0] - trajec[index, 0], MAXS[0] - trajec[index, 0], 0, MINS[2] - trajec[index, 1],
                      MAXS[2] - trajec[index, 1])
@@ -364,7 +364,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     # Visualize your final data, please define your example_path, like 'new_data_humanml_000067_joints_using_smplx_rotation.npy'
-    # example_path = ''
+    # example_path = '/inspire/hdd/ws-f4d69b29-e0a5-44e6-bd92-acf4de9990f0/public-project/qiuxipeng-24028/workspace/hgpt/datasets/code/tomato_represenation/motion_data/new_joints/humanml/000321.npy'
     # assert example_path != None
     data_list = findAllFile(args.path)
     
@@ -382,10 +382,10 @@ if __name__ == '__main__':
 
         # for feat_name in ['feats_ref', 'feat_rst']:
         # features = item[feat_name]
-        if not example_path.endswith('npy'):
+        if not example_path.endswith('joints_out.npy'):
             continue
         
-        outname = example_path.replace('.npy', '.gif')
+        outname = example_path.replace('joints_out.npy', '.gif')
         if os.path.exists(outname):
             continue
         

@@ -4,9 +4,9 @@ from rich.progress import track
 from os.path import join as pjoin
 import numpy as np
 
-from .dataset_t2m_base import Text2MotionDatasetBase
+from .dataset_t2m_base import Text2MotionDatasetBaseDist
 
-class MotionDatasetVQVAE(Text2MotionDatasetBase):
+class MotionDatasetVQVAE(Text2MotionDatasetBaseDist):
     def __init__(
         self,
         motion_feat_path,
@@ -36,6 +36,7 @@ class MotionDatasetVQVAE(Text2MotionDatasetBase):
                 name_list.remove(name)
                 self.data_dict.pop(name)
         self.name_list = name_list
+        print (f">>>> Loaded {len(self.name_list)} samples.")
 
     def __len__(self):
         return len(self.name_list)

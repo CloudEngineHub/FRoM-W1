@@ -5,11 +5,12 @@ import numpy as np
 import torch
 
 from .default import (
-    Text2MotionDatasetBase,
+    Text2MotionDatasetBaseDist,
     MotionDatasetVQVAE, 
     Text2MotionDatasetToken,
     Text2MotionDatasetTrain, 
     Text2MotionDatasetEval, 
+    # Text2MotionDatasetV2
     )
 from .default.word_vectorizer import WordVectorizer
 from .base import collate_tensors, BASEDataModule
@@ -83,19 +84,32 @@ class MotionXDataModule(BASEDataModule):
         self.save_hyperparameters(logger=False)
         
         # Basic info of the dataset
-        self.name = "motionx"
+        self.name = cfg.DATASET.MOTIONX.NAME
         self.njoints = cfg.DATASET.MOTIONX.NJOINTS
         self.unit_len = cfg.DATASET.MOTIONX.UNIT_LEN
         self.hparams.split_path = cfg.DATASET.MOTIONX.SPLIT_PATH
+        self.data_root = cfg.DATASET.MOTIONX.DATA_ROOT
+        self.motion_token_path = cfg.DATASET.MOTIONX.MOTION_TOKEN_PATH
         
         # Motion and Text
         self.hparams.motion_feat_path = cfg.DATASET.MOTIONX.MOTION_FEAT_PATH
         self.hparams.text_path = cfg.DATASET.MOTIONX.SEMANTIC_TEXT_PATH
         self.hparams.cot_path = cfg.DATASET.MOTIONX.COT_PATH
         
-        mean_std_root = cfg.DATASET.MOTIONX.MEAN_STD_PATH
-        self.hparams.mean = np.load(pjoin(mean_std_root, "Mean.npy"))
-        self.hparams.std = np.load(pjoin(mean_std_root, "Std.npy"))
+        if cfg.DATASET.MOTIONX.EVAL_MEAN_STD_PATH == '':
+            mean_std_root = cfg.DATASET.MOTIONX.MEAN_STD_PATH
+            self.hparams.mean = np.load(pjoin(mean_std_root, "mean.npy"))
+            self.hparams.std = np.load(pjoin(mean_std_root, "std.npy"))
+            self.hparams.mean_eval = None
+            self.hparams.std_eval = None
+        else:
+            mean_std_root = cfg.DATASET.MOTIONX.MEAN_STD_PATH
+            self.hparams.mean = np.load(pjoin(mean_std_root, "Mean.npy"))
+            self.hparams.std = np.load(pjoin(mean_std_root, "Std.npy"))
+            
+            eval_mean_std_root = cfg.DATASET.MOTIONX.EVAL_MEAN_STD_PATH # only use for motionx test
+            self.hparams.mean_eval = np.load(pjoin(eval_mean_std_root, "mean.npy"))
+            self.hparams.std_eval = np.load(pjoin(eval_mean_std_root, "std.npy"))
            
         # Length and FPS of the dataset
         self.hparams.min_motion_length = cfg.DATASET.MOTIONX.MIN_MOTION_LEN
@@ -108,10 +122,8 @@ class MotionXDataModule(BASEDataModule):
         if cfg.TRAIN.STAGE == "vae":
             self.hparams.win_size = cfg.DATASET.MOTIONX.VAE_WIN_SIZE
             self.hparams.max_text_len = cfg.DATASET.MOTIONX.MAX_TEXT_LEN
-            # TODO: check WordVectorizer 'self.name'
             self.hparams.w_vectorizer = WordVectorizer(
-                cfg.DATASET.WORD_VERTILIZER_PATH, self.name)
-            
+                cfg.DATASET.WORD_VERTILIZER_PATH, 'our_vab')
             self.DatasetTrain = MotionDatasetVQVAE
             self.DatasetEval = Text2MotionDatasetEval
         elif cfg.TRAIN.STAGE == "token":
@@ -122,9 +134,11 @@ class MotionXDataModule(BASEDataModule):
             self.hparams.motion_token_path = cfg.DATASET.MOTIONX.MOTION_TOKEN_PATH
             self.hparams.max_text_len = cfg.DATASET.MOTIONX.MAX_TEXT_LEN
             self.hparams.std_text = cfg.DATASET.MOTIONX.STD_TEXT
-            # TODO: check WordVectorizer 'self.name'
+            # self.hparams.truncate = cfg.DATASET.MOTIONX.TRUNCATE
+            # self.hparams.test_bs = cfg.TEST.BATCH_SIZE
+            
             self.hparams.w_vectorizer = WordVectorizer(
-                cfg.DATASET.WORD_VERTILIZER_PATH, self.name)
+                cfg.DATASET.WORD_VERTILIZER_PATH, 'our_vab')
             self.DatasetTrain = Text2MotionDatasetTrain
             self.DatasetEval = Text2MotionDatasetEval
         else:
@@ -148,6 +162,16 @@ class MotionXDataModule(BASEDataModule):
     def feats2joints(self, features):
         features = self.denormalize(features)
         return recover_from_ric(features, self.njoints)
+
+    def renorm4t2m(self, features):
+        # renorm to t2m norms for using t2m evaluators
+        ori_mean = torch.tensor(self.hparams.mean).to(features)
+        ori_std = torch.tensor(self.hparams.std).to(features)
+        eval_mean = torch.tensor(self.hparams.mean_eval).to(features)
+        eval_std = torch.tensor(self.hparams.std_eval).to(features)
+        features = features * ori_std + ori_mean
+        features = (features - eval_mean) / eval_std
+        return features
 
     def mm_mode(self, mm_on=True):
         if mm_on:

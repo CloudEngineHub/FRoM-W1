@@ -8,9 +8,11 @@ from torchmetrics.functional import pairwise_euclidean_distance
 
 from hGPT.config import instantiate_from_config
 
-from .utils import *
+from .utils import * 
 
 class TM2TMetrics(Metric):
+    full_state_update = True
+    
     def __init__(self,
                  cfg,
                  dataname,
@@ -25,14 +27,13 @@ class TM2TMetrics(Metric):
         self.cfg = cfg
         self.dataname = dataname
         self.name = "matching, fid, and diversity scores"
+        
         self.top_k = top_k
         self.R_size = R_size
-        
-        self.text = 'lm' in cfg.TRAIN.STAGE and cfg.model.params.task == 't2m'
-        self.unit_len = unit_len
-        
-        
         self.diversity_times = diversity_times
+        
+        self.text = True # 'lm' in cfg.TRAIN.STAGE and cfg.model.params.task == 't2m'
+        self.unit_len = unit_len
 
         self.add_state("count", default=torch.tensor(0), dist_reduce_fx="sum")
         self.add_state("count_seq",
@@ -66,7 +67,6 @@ class TM2TMetrics(Metric):
                     dist_reduce_fx="sum",
                 )
                 self.Matching_metrics.append(f"gt_R_precision_top_{str(k)}")
-                
             self.metrics.extend(self.Matching_metrics)
 
         # Fid
@@ -103,11 +103,19 @@ class TM2TMetrics(Metric):
         # load pretrianed
         if self.dataname == "motionx":
             dataname = "motionx"
+        elif self.dataname == "t2mx":
+            dataname = "t2mx"
+        elif self.dataname == "t2mx-noise":
+            dataname = "t2mx-noise"
+        elif self.dataname == "t2mx-rephrase":
+            dataname = "t2mx-rephrase"
         else:
+            print ("dataset name: ", self.dataname)
             raise NotImplementedError
+        assert 't2mx' in dataname
 
         t2m_checkpoint = torch.load(os.path.join(
-            cfg.METRIC.TM2T.t2m_path, dataname, "text_mot_match/model/finest_v4.tar"),
+            cfg.METRIC.TM2T.t2m_path, dataname, "text_mot_match/model/finest.tar"),
                                     map_location="cpu")
 
         self.t2m_textencoder.load_state_dict(t2m_checkpoint["text_encoder"])
@@ -132,87 +140,74 @@ class TM2TMetrics(Metric):
         count = self.count.item()
         count_seq = self.count_seq.item()
 
-        # Init metrics dict
+        # init metrics
         metrics = {metric: getattr(self, metric) for metric in self.metrics}
 
-        # Jump in sanity check stage
+        # if in sanity check stage then jump
         if sanity_flag:
             return metrics
 
-        # Cat cached batches and shuffle
+        # cat all embeddings
         shuffle_idx = torch.randperm(count_seq)
-
+        all_texts = torch.cat(self.text_embeddings,
+                              axis=0).cpu()[shuffle_idx, :]
         all_genmotions = torch.cat(self.recmotion_embeddings,
                                    axis=0).cpu()[shuffle_idx, :]
         all_gtmotions = torch.cat(self.gtmotion_embeddings,
                                   axis=0).cpu()[shuffle_idx, :]
 
-        # Compute text related metrics
-        if self.text:
-            all_texts = torch.cat(self.text_embeddings,
-                                  axis=0).cpu()[shuffle_idx, :]
-            # Compute r-precision
-            assert count_seq > self.R_size
-            top_k_mat = torch.zeros((self.top_k, ))
-            for i in range(count_seq // self.R_size):
-                # [bs=32, 1*256]
-                group_texts = all_texts[i * self.R_size:(i + 1) * self.R_size]
-                # [bs=32, 1*256]
-                group_motions = all_genmotions[i * self.R_size:(i + 1) *
-                                               self.R_size]
-                # dist_mat = pairwise_euclidean_distance(group_texts, group_motions)
-                # [bs=32, 32]
-                dist_mat = euclidean_distance_matrix(
-                    group_texts, group_motions).nan_to_num()
-                # print(dist_mat[:5])
-                # TODO (pli): update this type
-                dist_mat = dist_mat.float()
-                self.Matching_score += dist_mat.trace()
-                argsmax = torch.argsort(dist_mat, dim=1)
-                top_k_mat += calculate_top_k(argsmax,
-                                             top_k=self.top_k).sum(axis=0)
+        # Compute r-precision
+        assert count_seq > self.R_size
+        top_k_mat = torch.zeros((self.top_k, ))
+        for i in range(count_seq // self.R_size):
+            # [bs=32, 1*256]
+            group_texts = all_texts[i * self.R_size:(i + 1) * self.R_size]
+            # [bs=32, 1*256]
+            group_motions = all_genmotions[i * self.R_size:(i + 1) *
+                                           self.R_size]
+            # dist_mat = pairwise_euclidean_distance(group_texts, group_motions)
+            # [bs=32, 32]
+            dist_mat = euclidean_distance_matrix(group_texts,
+                                                 group_motions).nan_to_num()
+            # print(dist_mat[:5])
+            self.Matching_score += dist_mat.trace()
+            argsmax = torch.argsort(dist_mat, dim=1)
+            top_k_mat += calculate_top_k(argsmax, top_k=self.top_k).sum(axis=0)
+        R_count = count_seq // self.R_size * self.R_size
+        metrics["Matching_score"] = self.Matching_score / R_count
+        for k in range(self.top_k):
+            metrics[f"R_precision_top_{str(k+1)}"] = top_k_mat[k] / R_count
 
-            R_count = count_seq // self.R_size * self.R_size
-            metrics["Matching_score"] = self.Matching_score / R_count
-            for k in range(self.top_k):
-                metrics[f"R_precision_top_{str(k+1)}"] = top_k_mat[k] / R_count
-
-            # Compute r-precision with gt
-            # TODO (pli): error when debug with 32 examples
-            assert count_seq > self.R_size
-            top_k_mat = torch.zeros((self.top_k, ))
-            for i in range(count_seq // self.R_size):
-                # [bs=32, 1*256]
-                group_texts = all_texts[i * self.R_size:(i + 1) * self.R_size]
-                # [bs=32, 1*256]
-                group_motions = all_gtmotions[i * self.R_size:(i + 1) *
-                                              self.R_size]
-                # [bs=32, 32]
-                dist_mat = euclidean_distance_matrix(
-                    group_texts, group_motions).nan_to_num()
-                # match score
-                dist_mat = dist_mat.float()
-                self.gt_Matching_score += dist_mat.trace()
-                argsmax = torch.argsort(dist_mat, dim=1)
-                top_k_mat += calculate_top_k(argsmax,
-                                             top_k=self.top_k).sum(axis=0)
-            metrics["gt_Matching_score"] = self.gt_Matching_score / R_count
-            for k in range(self.top_k):
-                metrics[f"gt_R_precision_top_{str(k+1)}"] = top_k_mat[k] / R_count
+        # Compute r-precision with gt
+        assert count_seq > self.R_size
+        top_k_mat = torch.zeros((self.top_k, ))
+        for i in range(count_seq // self.R_size):
+            # [bs=32, 1*256]
+            group_texts = all_texts[i * self.R_size:(i + 1) * self.R_size]
+            # [bs=32, 1*256]
+            group_motions = all_gtmotions[i * self.R_size:(i + 1) *
+                                          self.R_size]
+            # [bs=32, 32]
+            dist_mat = euclidean_distance_matrix(group_texts,
+                                                 group_motions).nan_to_num()
+            # match score
+            self.gt_Matching_score += dist_mat.trace()
+            argsmax = torch.argsort(dist_mat, dim=1)
+            top_k_mat += calculate_top_k(argsmax, top_k=self.top_k).sum(axis=0)
+        metrics["gt_Matching_score"] = self.gt_Matching_score / R_count
+        for k in range(self.top_k):
+            metrics[f"gt_R_precision_top_{str(k+1)}"] = top_k_mat[k] / R_count
 
         # tensor -> numpy for FID
-        # TypeError: Got unsupported ScalarType BFloat16
-        all_genmotions = all_genmotions.to(torch.float32)
-        all_gtmotions = all_gtmotions.to(torch.float32)
-        
         all_genmotions = all_genmotions.numpy()
         all_gtmotions = all_gtmotions.numpy()
 
         # Compute fid
         mu, cov = calculate_activation_statistics_np(all_genmotions)
+        # gt_mu, gt_cov = calculate_activation_statistics_np(all_gtmotions)
         gt_mu, gt_cov = calculate_activation_statistics_np(all_gtmotions)
-        metrics["FID"] = calculate_frechet_distance_np(gt_mu, gt_cov, mu, cov)
         metrics["gt_FID"] = calculate_frechet_distance_np(gt_mu, gt_cov, gt_mu, gt_cov)
+        metrics["FID"] = calculate_frechet_distance_np(gt_mu, gt_cov, mu, cov)
 
         # Compute diversity
         assert count_seq > self.diversity_times
@@ -236,67 +231,65 @@ class TM2TMetrics(Metric):
                pos_ohot: Tensor = None,
                text_lengths: Tensor = None):
 
+        # print (f"feats_ref: {feats_ref}")
+        # print (f"feats_rst: {feats_rst}")
+        # print (f"lengths_ref: {len(feats_ref[0])}")
+        # print (f"lengths_rst: {len(feats_rst[0])}")
+        # exit(0)
+        
         self.count += sum(lengths_ref)
         self.count_seq += len(lengths_ref)
 
         # T2m motion encoder
-        align_idx = np.argsort(lengths_ref)[::-1].copy()
+        lengths_ref = torch.tensor(lengths_ref, device=feats_ref.device)
+        align_idx = np.argsort(lengths_ref.data.tolist())[::-1].copy()
         feats_ref = feats_ref[align_idx]
-        lengths_ref = np.array(lengths_ref)[align_idx]
-        gtmotion_embeddings = self.get_motion_embeddings(
-            feats_ref, lengths_ref)
-        cache = [0] * len(lengths_ref)
-        for i in range(len(lengths_ref)):
-            cache[align_idx[i]] = gtmotion_embeddings[i:i + 1]
-        self.gtmotion_embeddings.extend(cache)
-
-        align_idx = np.argsort(lengths_rst)[::-1].copy()
         feats_rst = feats_rst[align_idx]
-        lengths_rst = np.array(lengths_rst)[align_idx]
-        recmotion_embeddings = self.get_motion_embeddings(
-            feats_rst, lengths_rst)
-        cache = [0] * len(lengths_rst)
-        for i in range(len(lengths_rst)):
-            cache[align_idx[i]] = recmotion_embeddings[i:i + 1]
-        self.recmotion_embeddings.extend(cache)
+        lengths_ref = lengths_ref[align_idx]
+        lengths_ref = torch.div(lengths_ref,
+                           self.unit_len,
+                           rounding_mode="floor")
+        
+        motion_mov_ref = self.t2m_moveencoder(feats_ref[..., :-4]).detach()
+        motion_emb_ref = self.t2m_motionencoder(motion_mov_ref, lengths_ref)
+        self.gtmotion_embeddings.append(torch.flatten(motion_emb_ref,
+                                            start_dim=1).detach())
+
+        motion_mov_rst = self.t2m_moveencoder(feats_rst[..., :-4]).detach()
+        motion_emb_rst = self.t2m_motionencoder(motion_mov_rst, lengths_ref)
+        self.recmotion_embeddings.append(torch.flatten(motion_emb_rst,
+                                            start_dim=1).detach())
+        
+        # gtmotion_embeddings = self.get_motion_embeddings(
+        #     feats_ref, lengths_ref)
+        # cache = [0] * len(lengths_ref)
+        # for i in range(len(lengths_ref)):
+        #     cache[align_idx[i]] = gtmotion_embeddings[i:i + 1]
+        # self.gtmotion_embeddings.extend(cache)
+
+        # # align_idx = np.argsort(lengths_rst)[::-1].copy()
+        # lengths_rst = np.array(lengths_rst)[align_idx]
+        # recmotion_embeddings = self.get_motion_embeddings(
+        #     feats_rst, lengths_rst)
+        # cache = [0] * len(lengths_rst)
+        # for i in range(len(lengths_rst)):
+        #     cache[align_idx[i]] = recmotion_embeddings[i:i + 1]
+        # self.recmotion_embeddings.extend(cache)
 
         # T2m text encoder
         if self.text:
-            text_emb = self.t2m_textencoder(word_embs, pos_ohot, text_lengths)
+            text_emb = self.t2m_textencoder(word_embs, pos_ohot, text_lengths)[align_idx]
             text_embeddings = torch.flatten(text_emb, start_dim=1).detach()
             self.text_embeddings.append(text_embeddings)
 
     # def get_motion_embeddings(self, feats: Tensor, lengths: List[int]):
     #     m_lens = torch.tensor(lengths)
-    #     m_lens = torch.div(m_lens,
-    #                        self.unit_len,
-    #                        rounding_mode="floor")
+    #     # m_lens = torch.div(m_lens,
+    #     #                    self.cfg.DATASET.HUMANML3D.UNIT_LEN,
+    #     #                    rounding_mode="floor")
     #     m_lens = m_lens // self.unit_len
-        
-    #     # TODO (pli): update here with -4
     #     mov = self.t2m_moveencoder(feats[..., :-4]).detach()
     #     emb = self.t2m_motionencoder(mov, m_lens)
 
     #     # [bs, nlatent*ndim] <= [bs, nlatent, ndim]
     #     return torch.flatten(emb, start_dim=1).detach()
-    
-    
-    def get_motion_embeddings(self, motions, m_lens):
-        with torch.no_grad():
-            motions = motions.detach().to(self.device).float()
-
-            align_idx = np.argsort(m_lens.data.tolist())[::-1].copy()
-            motions = motions[align_idx]
-            m_lens = m_lens[align_idx]
-
-            '''Movement Encoding'''
-            '''
-            yfgao: motions[..., :] for VQ movement encoder previously
-            motions[..., :-4] for movement encoder now
-            '''
-            movements = self.t2m_moveencoder(motions[..., :-4]).detach()
-            # movements = self.t2m_moveencoder(motions[..., :]).detach()
-            
-            m_lens = m_lens // self.unit_len
-            motion_embedding = self.t2m_motionencoder(movements, m_lens)
-        return motion_embedding

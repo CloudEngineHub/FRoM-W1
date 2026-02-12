@@ -78,10 +78,18 @@ class BaseModel(LightningModule):
     def on_test_epoch_end(self):
         # Log metrics
         dico = self.metrics_log_dict()
+        # print(dico)
+        metric_names = dico.keys()
+        save_flag = True
+        # exit(0)
         # Write to log only if not sanity check
         if not self.trainer.sanity_checking:
             self.log_dict(dico, sync_dist=True, rank_zero_only=True)
-        self.save_npy(self.test_step_outputs)
+        for name in metric_names:
+            if 'MultiModality' in name:
+                save_flag = False
+        if save_flag:
+            self.save_npy(self.test_step_outputs)
         self.rep_i = self.rep_i + 1
         # Free up the memory
         self.test_step_outputs.clear()
@@ -183,7 +191,7 @@ class BaseModel(LightningModule):
                         # gen joints
                         gen_joints = joints_rst[i][bid][:lengths[i][bid]].cpu(
                         ).numpy()
-                        npypath = output_dir / f"{tmp_name}_joints_pred.npy"
+                        npypath = output_dir / f"{tmp_name}_joints_pred_{self.rep_i}.npy"
                         npypath_parent = npypath.parent
                         npypath_parent.mkdir(parents=True, exist_ok=True)
                         np.save(npypath, gen_joints)
@@ -199,7 +207,7 @@ class BaseModel(LightningModule):
                         # save pred feats
                         gen_feats = feats_rst[i][bid][:lengths[i][bid]].cpu(
                         ).numpy()
-                        npypath = output_dir / f"{tmp_name}_feats_pred.npy"
+                        npypath = output_dir / f"{tmp_name}_feats_pred_{self.rep_i}.npy"
                         npypath_parent = npypath.parent
                         npypath_parent.mkdir(parents=True, exist_ok=True)
                         np.save(npypath, gen_feats)
@@ -216,7 +224,7 @@ class BaseModel(LightningModule):
                                 f.write(f"{cot_ref}\n")
                                     
                             cot_rst = cots_rst[i][bid]
-                            with open(output_dir / f"{tmp_name}_cot_pred.txt", "a") as f:
+                            with open(output_dir / f"{tmp_name}_cot_pred_{self.rep_i}.txt", "a") as f:
                                 f.write(f"{cot_rst}\n")     
             else:
                 raise NotImplementedError

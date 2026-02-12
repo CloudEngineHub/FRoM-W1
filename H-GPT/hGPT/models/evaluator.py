@@ -459,7 +459,9 @@ class TextEncoderBiGRUCo(nn.Module):
         hidden = self.hidden.repeat(1, num_samples, 1)
 
         cap_lens = cap_lens.data.tolist()
-        emb = pack_padded_sequence(input_embs, cap_lens, batch_first=True)
+        emb = pack_padded_sequence(input_embs, cap_lens, batch_first=True
+                                #    enforce_sorted=False
+                                   )
 
         gru_seq, gru_last = self.gru(emb, hidden)
 
@@ -492,8 +494,12 @@ class MotionEncoderBiGRUCo(nn.Module):
         input_embs = self.input_emb(inputs)
         hidden = self.hidden.repeat(1, num_samples, 1)
         cap_lens = m_lens.data.tolist()
-        emb = pack_padded_sequence(input_embs, cap_lens, batch_first=True)
-
+        
+        emb = pack_padded_sequence(input_embs, cap_lens, batch_first=True,
+                                #    enforce_sorted=False
+                                   )
+        # emb = input_embs
+        
         gru_seq, gru_last = self.gru(emb, hidden)
 
         gru_last = torch.cat([gru_last[0], gru_last[1]], dim=-1)

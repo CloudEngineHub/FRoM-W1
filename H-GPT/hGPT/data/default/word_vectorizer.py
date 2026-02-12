@@ -44,9 +44,16 @@ VIP_dict = {
 
 class WordVectorizer(object):
     def __init__(self, meta_root, prefix):
+        # vectors = np.load(pjoin(meta_root, '%s_data.npy'%prefix))
+        # words = pickle.load(open(pjoin(meta_root, '%s_words.pkl'%prefix), 'rb'))
+        # word2idx = pickle.load(open(pjoin(meta_root, '%s_idx.pkl'%prefix), 'rb'))
+        
+        # meta_root = meta_root.replace('glove/', 'glove_t2mx/') # only use for motionx
+        
         vectors = np.load(pjoin(meta_root, '%s_data.npy'%prefix))
         words = pickle.load(open(pjoin(meta_root, '%s_words.pkl'%prefix), 'rb'))
         word2idx = pickle.load(open(pjoin(meta_root, '%s_idx.pkl'%prefix), 'rb'))
+        
         self.word2vec = {w: vectors[word2idx[w]] for w in words}
 
     def _get_pos_ohot(self, pos):

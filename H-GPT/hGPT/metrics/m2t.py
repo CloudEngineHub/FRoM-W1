@@ -23,7 +23,6 @@ class M2TMetrics(Metric):
                  unit_length,
                  **kwargs):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
-
         self.cfg = cfg
         self.dataname = dataname
         self.w_vectorizer = w_vectorizer
@@ -113,6 +112,7 @@ class M2TMetrics(Metric):
         """
         load T2M text encoder and motion encoder for evaluating
         """
+        raise NotImplementedError
         # init module
         self.t2m_textencoder = instantiate_from_config(cfg.METRIC.TM2T.t2m_textencoder)
         self.t2m_moveencoder = instantiate_from_config(cfg.METRIC.TM2T.t2m_moveencoder)
@@ -126,7 +126,7 @@ class M2TMetrics(Metric):
             dataname = "t2m"
 
         t2m_checkpoint = torch.load(os.path.join(
-            cfg.METRIC.TM2T.t2m_path, dataname, "text_mot_match/model/finest_v4.tar"),
+            cfg.METRIC.TM2T.t2m_path, dataname, "text_mot_match/model/finest_v1.tar"),
                                     map_location='cpu')
         self.t2m_textencoder.load_state_dict(t2m_checkpoint["text_encoder"])
         self.t2m_moveencoder.load_state_dict(
