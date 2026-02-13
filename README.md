@@ -36,7 +36,7 @@
 
 > For more information, please refer to our [project page](https://openmoss.github.io/FRoM-W1/) and [technical report](https://arxiv.org/abs/2601.12799).
 
-Humanoid robots are capable of performing various actions such as greeting, dancing and even backflipping. However, these motions are often hard-coded or specifically trained, which limits their versatility. In this work, we present **FRoM-W1**[^1], an open-source framework designed to achieve general humanoid whole-body motion control using natural language.
+Humanoid robots are capable of performing various actions such as greeting, dancing and even backflipping. However, these motions are often hard-coded or specifically trained, which limits their versatility. In this work, we present **FRoM-W1** (**F**oundational Humanoid **Ro**bot **M**odel - **W**hole-Body Control, Version **1**), an open-source framework designed to achieve general humanoid whole-body motion control using natural language.
 
 To universally understand natural language and generate corresponding motions, as well as enable various humanoid robots to stably execute these motions in the physical world under gravity, **FRoM-W1** operates in two stages:
 
@@ -46,9 +46,7 @@ Utilizing massive human data, a large-scale language-driven human whole-body mot
 **(b) H-ACT**  
 After retargeting generated human whole-body motions into robot-specific actions, a motion controller that is pretrained and further fine-tuned through reinforcement learning in physical simulation enables humanoid robots to accurately and stably perform corresponding actions. It is then deployed on real robots via a modular sim-to-real module.
 
-We extensively evaluate **FRoM-W1** on Unitree H1 and G1 robots. Results demonstrate superior performance on the HumanML3D-X benchmark for human whole-body motion generation, and our introduced reinforcement learning fine-tuning consistently improves both motion tracking accuracy and task success rates of these humanoid robots. We open-source the entire **FRoM-W1** framework and hope it will advance the development of humanoid intelligence. 
-
-[^1]: **F**oundational Humanoid **Ro**bot **M**odel - **W**hole-Body Control, Version **1**
+We extensively evaluate **FRoM-W1** on Unitree H1 and G1 robots. Results demonstrate superior performance on the HumanML3D-X benchmark for human whole-body motion generation, and our introduced reinforcement learning fine-tuning consistently improves both motion tracking accuracy and task success rates of these humanoid robots. We open-source the entire **FRoM-W1** framework and hope it will advance the development of humanoid intelligence.
 
 ## 📑 Roadmap
 
@@ -67,9 +65,9 @@ Due to license restrictions, we cannot publicly share all of the data. Here are 
 
 | **Dataset Name** | **Download Guide** |
 |:----------------:|:------------------:|
-|    HumanML3D-X   | Please refer to the process in the [Motion-X](https://github.com/IDEA-Research/Motion-X) repo to download and process the corresponding AMASS data. The CoT part can be downloaded [here](https://huggingface.co/datasets/OpenMOSS-Team/FRoM-W1-Datasets/tree/main/data).|
+|    HumanML3D-X   | Please refer to the process in the [Motion-X](https://github.com/IDEA-Research/Motion-X) repo and [this document](./H-GPT/motionx_processing.md) to download and process the corresponding AMASS data. The CoT part can be downloaded [here](https://huggingface.co/datasets/OpenMOSS-Team/FRoM-W1-Datasets/tree/main/data).|
 |   δHumanML3D-X   | After obtaining the HumanML3D-X data, replace the textual instructions in it with the perturbed versions provided [here](https://huggingface.co/datasets/OpenMOSS-Team/FRoM-W1-Datasets/tree/main/data). |
-|     Motion-X     | Please refer to the original [Motion-X](https://github.com/IDEA-Research/Motion-X) repo. Note that we did not use the Motion-X++ version; specifically, we used the version from [2024.2.6].|
+|     Motion-X     | Please refer to the original [Motion-X](https://github.com/IDEA-Research/Motion-X) repo. We add a Motion-X processing document [HERE](./H-GPT/motionx_processing.md).|
 
 **H-ACT Module**
 
@@ -81,7 +79,7 @@ Due to license restrictions, we cannot publicly share all of the data. Here are 
 
 ## 🧠 Models
 
-To keep the repo organized, we provide a subset of core model checkpoints below:
+To keep the repo organized, we provide a subset of core model checkpoints below. If you require additional model checkpoints, please contact us.
 
 **H-GPT Module**
 
@@ -102,8 +100,6 @@ To keep the repo organized, we provide a subset of core model checkpoints below:
 |      H1-Clean    |   [Teacher Policy](), [Student Policy](https://huggingface.co/OpenMOSS-Team/FRoM-W1/tree/main/hact/h1/25_12_10_14-13-33_OmniH2O_STUDENT_filter)      |
 |      G1-Full     |   [Teacher Policy](), [Student Policy](https://huggingface.co/OpenMOSS-Team/FRoM-W1/tree/main/hact/g1/25_12_11_18-16-37_OmniH2O_STUDENT)      |
 |      G1-Clean    |   [Teacher Policy](), [Student Policy](https://huggingface.co/OpenMOSS-Team/FRoM-W1/tree/main/hact/g1/25_12_11_18-18-10_OmniH2O_STUDENT_FILTER)      |
-
-If you require additional model checkpoints, please contact us.
 
 ## 🚀 Quick Start
 
