@@ -65,9 +65,11 @@ Due to license restrictions, we cannot publicly share all of the data. Here are 
 
 | **Dataset Name** | **Download Guide** |
 |:----------------:|:------------------:|
-|    HumanML3D-X   | Please refer to the process in the [Motion-X](https://github.com/IDEA-Research/Motion-X) repo and [this document](./H-GPT/motionx_processing.md) to download and process the corresponding AMASS data. The CoT part can be downloaded [here](https://huggingface.co/datasets/OpenMOSS-Team/FRoM-W1-Datasets/tree/main/data).|
+|    HumanML3D-X   | Please refer to the process in the [Motion-X](https://github.com/IDEA-Research/Motion-X) repo and [this document](./H-GPT/motionx_processing.md) to download and process the corresponding AMASS data. We re-calculate the mean and std for this dataset, and use the original HumanML3D train/dev/test split. The CoT part can be downloaded [here](https://huggingface.co/datasets/OpenMOSS-Team/FRoM-W1-Datasets/tree/main/data).|
 |   δHumanML3D-X   | After obtaining the HumanML3D-X data, replace the textual instructions in it with the perturbed versions provided [here](https://huggingface.co/datasets/OpenMOSS-Team/FRoM-W1-Datasets/tree/main/data). |
 |     Motion-X     | Please refer to the original [Motion-X](https://github.com/IDEA-Research/Motion-X) repo. We add a Motion-X processing document [HERE](./H-GPT/motionx_processing.md).|
+
+During your development process, you might also need the original HumanML3D and KIT-ML datasets, for example, to reproduce related work or check the accuracy of your code. Here are two links that might speed up this process: [HumanML3D](https://drive.google.com/drive/folders/1OZrTlAGRvLjXhXwnRiOC-oxYry1vf-Uu) / [KIT-ML](https://drive.google.com/drive/folders/1D3bf2G2o4Hv-Ale26YW18r1Wrh7oIAwK).
 
 **H-ACT Module**
 
