@@ -124,11 +124,118 @@ pip install -r requirements.txt
 
 ### 2. Whole-Body Human Motion Generation
 
-> [26/02/04] Note: This motion generation part is not fully organized yet. We are currently dealing with it and will update the files after checking. Please wait a moment.
+The first step is to generate whole-body human motions with H-GPT models.
 
-- Download the H-GPT whole-body motion tokenizer and the motion generator from the HuggingFace.
-- Replace the path to the motion tokenizer and the motion generator at line 55 & 78 of `./H-GPT/hGPT/configs/config_deployment_cot.yaml`
-- Run `bash ./H-GPT/app.sh` to deploy the H-GPT model to a gradio app and generate human motions.
+(a) If you only need to perform model inference, we have provided the necessary files in this repository. Otherwise, you need to process the complete HumanML3D-X and Motion-X datasets. You should first follow this [document](./H-GPT/motionx_processing.md) to download and process the Motion-X dataset, and then use the [HumanML3D](https://drive.google.com/drive/folders/1OZrTlAGRvLjXhXwnRiOC-oxYry1vf-Uu) dataset along with the Motion-X dataset to construct the HumanML3D-X dataset.
+
+The folder structure of the processed HumanML3D-X dataset should be as follows, and the structure of the Motion-X dataset should be as shown in the aforementioned document.
+
+```bash
+./datasets/humanml3d-x/data
+|-- Mean.npy
+|-- Std.npy
+|-- all.txt -> ./datasets/humanml3d/data/all.txt
+|-- cot-v3
+|-- new_joint_vecs -> ./datasets/motionx/data/motion_data/vectors_623/humanml
+|-- new_joints -> ./datasets/motionx/data/motion_data/joints_623/humanml
+|-- test.txt -> ./datasets/humanml3d/data/test.txt
+|-- texts -> ./datasets/humanml3d/data/texts
+|-- train.txt -> ./datasets/humanml3d/data/train.txt
+|-- train_val.txt -> ./datasets/humanml3d/data/train_val.txt
+`-- val.txt -> ./datasets/humanml3d/data/val.txt
+```
+
+(b) Then you need to download the corresponding dependencies. The entire file structure of the `./deps` folder is as follows.
+
+```bash
+./H-GPT/deps/
+|-- Meta-Llama-3.1-8B
+|   |-- LICENSE
+|   |-- ...
+|-- body_models # body models
+|   |-- dmpls
+|   |-- smplh
+|   `-- smplx
+|-- glove_motionx # glove for motion-x
+|   |-- oov.txt
+|   |-- our_vab_data.npy
+|   |-- our_vab_idx.pkl
+|   `-- our_vab_words.pkl
+|-- glove_t2m # glove for humanml3d-x
+|   |-- our_vab_data.npy
+|   |-- our_vab_idx.pkl
+|   `-- our_vab_words.pkl
+`-- t2m # eval models
+    |-- kit
+    |-- t2m
+    |-- t2mx
+    |-- t2mx-noise
+    `-- t2mx-rephrase
+```
+You need to download the `Meta-Llama-3.1-8B` model via the [offical link](https://huggingface.co/meta-llama/Llama-3.1-8B). The detailed `body_models` folder is like
+
+```bash
+body_models
+|-- dmpls # https://smpl.is.tue.mpg.de/download.php, `Download DMPLs compatible with SMPL`
+|   |-- female
+|   |   `-- model.npz
+|   |-- male
+|   |   `-- model.npz
+|   `-- neutral
+|       `-- model.npz
+|-- smplh # https://mano.is.tue.mpg.de/download.php, `Extended SMPL+H model`
+|   |-- female
+|   |   `-- model.npz
+|   |-- info.txt
+|   |-- male
+|   |   `-- model.npz
+|   `-- neutral
+|       `-- model.npz
+|-- smplx # https://smpl-x.is.tue.mpg.de/download.php, `Download SMPL-X v1.1`
+|   |-- MANO_SMPLX_vertex_ids.pkl
+|   |-- SMPL-X__FLAME_vertex_ids.npy
+|   |-- SMPLX_FEMALE.npz
+|   |-- SMPLX_FEMALE.pkl
+|   |-- SMPLX_MALE.npz
+|   |-- SMPLX_MALE.pkl
+|   |-- SMPLX_NEUTRAL.npz
+|   |-- SMPLX_NEUTRAL.pkl
+|   |-- SMPLX_to_J14.pkl
+|   |-- smplx_npz.zip
+|   `-- version.txt
+```
+
+You need to download the corresponding file by referring to the links and information in the above comments.
+
+The folders under the `t2m` folder are eval models, and the internal structure of each folder is shown in the figure below. The most important folder is the `text_mot_match` folder.
+```bash
+t2m
+|-- Comp_v6_KLD005
+|   |-- meta
+|   `-- opt.txt
+|-- Comp_v6_KLD01
+|   |-- meta
+|   |-- model
+|   `-- opt.txt
+|-- VQVAEV3_CB1024_CMT_H1024_NRES3
+|   |-- meta
+|   `-- model
+`-- text_mot_match
+    |-- eval
+    `-- model
+```
+
+(c) Download the H-GPT whole-body motion tokenizer and the motion generator from the [HuggingFace](https://huggingface.co/OpenMOSS-Team/FRoM-W1/tree/main/hgpt) and put them into the `./H-GPT/experiments` folder.    
+(d) We have provided multiple reference config files in the `./H-GPT/configs` folder. The key modification you need to make is the path to the VQVAE and Generation Model.    
+(e) Refer to the `bash ./H-GPT/scripts/demo.sh` to generate whole-body human motions given an instruction in the `./scripts/instructions.txt` file.
+```bash
+CUDA_VISIBLE_DEVICES=0 python -m scripts.demo --cfg_assets ./configs/assets.yaml --cfg configs/exp/1217_config_motionx_stage2_body_hands_llama_vqvae2kx1k_cotv3_t2mx.yaml --task t2m --example ./scripts/instructions.txt
+```
+(f) Run the following command to visualize the generated motions.
+```bash
+cd ./H-GPT
+python -m hGPT.data.motionx.visualization.plot_3d_global --path ./results/<the_above_result_folder>
+```
 
 ### 3. Human-to-Humanoid Motion Retargeting
 

@@ -72,22 +72,11 @@ H-GPT/datasets/motionx
 |   |-- split
 |   |   |-- README.md
 |   |   |-- all.txt
-|   |   |-- humanml3d_offical_test.txt
 |   |   |-- test.txt
-|   |   |-- test_is_train.txt
-|   |   |-- test_small.txt
-|   |   |-- test_small_humanml3d.txt
-|   |   |-- test_tiny.txt
-|   |   |-- train-filtered-v1.txt
-|   |   |-- train-filtered-v2.txt
 |   |   |-- train.txt
-|   |   |-- train_small.txt
-|   |   |-- val-filtered-v1.txt
-|   |   |-- val-filtered-v2.txt
 |   |   `-- val.txt
 |   |-- texts
 |   |   |-- body_texts
-|   |   |-- check_semantic_labels.py
 |   |   |-- cot
 |   |   |-- face_texts
 |   |   |-- hand_texts
@@ -131,7 +120,6 @@ H-GPT/datasets/motionx
     |-- datasets
     |-- mocap-dataset-process
     |-- non-mocap-dataset-process
-    |-- playground
     |-- process_texts.py
     |-- stat.py
     `-- visualization
