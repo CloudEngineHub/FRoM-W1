@@ -5,7 +5,7 @@
 Clone our GitHub repo:
 
 ```bash
-git clone --depth 1 git@github.com:OpenMOSS/FRoM-W1.git
+git clone -b main --single-branch git@github.com:OpenMOSS/FRoM-W1.git
 cd ./FRoM-W1
 ```
 

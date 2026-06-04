@@ -105,7 +105,7 @@ To keep the repo organized, we provide a subset of core model checkpoints below.
 
 ## 🚀 Quick Start
 
-Please refer to the [Quick Start](./QUICKSTART.md) guide.
+Please refer to the [QUICKSTART](./QUICKSTART.md) guide.
 
 ## 🙏 Acknowledgements
 
