@@ -26,7 +26,7 @@ The first step is to generate whole-body human motions with H-GPT models.
 The folder structure of the processed HumanML3D-X dataset should be as follows, and the structure of the Motion-X dataset should be as shown in the aforementioned document.
 
 ```bash
-./datasets/humanml3d-x/data
+./H-GPT/datasets/humanml3d-x/data
 |-- Mean.npy
 |-- Std.npy
 |-- all.txt -> ./datasets/humanml3d/data/all.txt
@@ -70,7 +70,7 @@ The folder structure of the processed HumanML3D-X dataset should be as follows, 
 You need to download the `Meta-Llama-3.1-8B` model via the [offical link](https://huggingface.co/meta-llama/Llama-3.1-8B). The detailed `body_models` folder is like
 
 ```bash
-body_models
+./H-GPT/deps/body_models
 |-- dmpls # https://smpl.is.tue.mpg.de/download.php, `Download DMPLs compatible with SMPL`
 |   |-- female
 |   |   `-- model.npz
@@ -104,7 +104,7 @@ You need to download the corresponding file by referring to the links and inform
 
 The folders under the `t2m` folder are eval models, and the internal structure of each folder is shown in the figure below. The most important folder is the `text_mot_match` folder.
 ```bash
-t2m
+./H-GPT/deps/t2m
 |-- Comp_v6_KLD005
 |   |-- meta
 |   `-- opt.txt
