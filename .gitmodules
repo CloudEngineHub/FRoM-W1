@@ -1,9 +1,9 @@
-[submodule "H-ACT/RoboJuDo"]
-	path = H-ACT/RoboJuDo
-	url = https://github.com/humanoidintelligence/RoboJuDo
 [submodule "H-ACT/retarget"]
 	path = H-ACT/retarget
 	url = git@github.com:humanoidintelligence/HiRetarget.git
 [submodule "H-ACT/human2humanoid"]
 	path = H-ACT/human2humanoid
 	url = git@github.com:humanoidintelligence/human2humanoid.git
+[submodule "H-ACT/RoboJuDo"]
+	path = H-ACT/RoboJuDo
+	url = git@github.com:humanoidintelligence/RoboJuDo.git
