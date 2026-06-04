@@ -68,6 +68,8 @@ Thumbs.db
 *.log
 .env
 
+
+.sii/*
 datasets/*
 deps/*
 experiments/
